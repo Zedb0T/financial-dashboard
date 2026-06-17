@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Financial Dashboard — Debt Freedom Tracker</title>
+<link rel="stylesheet" href="styles.css" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">$</div>
+      <div>
+        <div class="brand-title">Debt Freedom</div>
+        <div class="brand-sub">Financial Dashboard</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <button class="nav-btn active" data-tab="overview">Overview</button>
+      <button class="nav-btn" data-tab="debts">Debts</button>
+      <button class="nav-btn" data-tab="income">Income</button>
+      <button class="nav-btn" data-tab="expenses">Expenses</button>
+      <button class="nav-btn" data-tab="efficiency">Efficiency</button>
+      <button class="nav-btn" data-tab="plan">Payoff Plan</button>
+      <button class="nav-btn" data-tab="progress">Progress</button>
+      <button class="nav-btn" data-tab="settings">Settings</button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="footer-label">Saved locally in your browser</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <!-- OVERVIEW -->
+    <section class="tab active" id="tab-overview">
+      <header class="page-head">
+        <h1>Overview</h1>
+        <p class="muted">Your financial snapshot at a glance.</p>
+      </header>
+
+      <div class="stat-grid stat-grid-5">
+        <div class="stat card">
+          <div class="stat-label">Total Debt</div>
+          <div class="stat-value" id="stat-debt">$0</div>
+          <div class="stat-sub" id="stat-debt-sub">0 accounts</div>
+        </div>
+        <div class="stat card">
+          <div class="stat-label">Bank Balance</div>
+          <div class="stat-value" id="stat-bank">$0</div>
+          <div class="stat-sub" id="stat-bank-sub">Edit in card below</div>
+        </div>
+        <div class="stat card">
+          <div class="stat-label">Monthly Income</div>
+          <div class="stat-value pos" id="stat-income">$0</div>
+          <div class="stat-sub" id="stat-income-sub">0 sources</div>
+        </div>
+        <div class="stat card">
+          <div class="stat-label">Monthly Expenses</div>
+          <div class="stat-value neg" id="stat-expenses">$0</div>
+          <div class="stat-sub" id="stat-expenses-sub">0 items</div>
+        </div>
+        <div class="stat card">
+          <div class="stat-label">Available for Debt</div>
+          <div class="stat-value" id="stat-available">$0</div>
+          <div class="stat-sub" id="stat-available-sub">income − expenses</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Bank Account &amp; Emergency Fund</h2></div>
+        <div class="bank-grid">
+          <label>Current Bank Balance ($)
+            <input id="bank-balance" type="number" step="0.01" min="0" placeholder="0.00" />
+          </label>
+          <label>Emergency Fund Threshold ($)
+            <input id="emergency-fund" type="number" step="0.01" min="0" placeholder="6000.00" />
+          </label>
+          <div class="bank-status-cell">
+            <div class="stat-label">Buffer Status</div>
+            <div class="stat-value" id="bank-buffer-value">—</div>
+            <div class="stat-sub" id="bank-buffer-sub">vs. threshold</div>
+          </div>
+        </div>
+        <label class="rule-toggle">
+          <input id="use-rule" type="checkbox" />
+          <div>
+            <div class="rule-title">Apply Emergency Fund Rule</div>
+            <div class="rule-sub" id="rule-sub">
+              Pay only minimums until bank hits threshold. Then at month-end, anything over threshold goes to the strategy's #1 target.
+            </div>
+          </div>
+        </label>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>One-Time Bonus</h2></div>
+        <form class="form-grid" id="form-bonus">
+          <label>Amount ($)
+            <input name="amount" type="number" step="0.01" min="0.01" placeholder="2000.00" required />
+          </label>
+          <label>Date
+            <input name="date" type="date" />
+          </label>
+          <label>Note (optional)
+            <input name="note" type="text" placeholder="Tax refund, bonus, gift, etc." />
+          </label>
+          <div class="form-actions">
+            <button type="submit" class="btn primary">Add to Bank</button>
+          </div>
+        </form>
+        <p class="help" style="margin-top:10px">
+          Adds the amount to your bank balance. With the emergency rule on, anything that pushes you past the threshold
+          will flow to your debt target at month-end.
+        </p>
+
+        <div class="table-wrap" style="margin-top:14px">
+          <table class="table" id="table-bonuses">
+            <thead>
+              <tr><th>Date</th><th>Amount</th><th>Note</th><th></th></tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot>
+              <tr><td>Total Bonuses</td><td id="bonuses-total">$0</td><td colspan="2"></td></tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div class="split-grid">
+        <div class="card">
+          <div class="card-head">
+            <h2>Debt Freedom Countdown</h2>
+          </div>
+          <div class="countdown">
+            <div class="countdown-date" id="countdown-date">—</div>
+            <div class="countdown-sub" id="countdown-sub">Add debts &amp; a budget to see your free date.</div>
+          </div>
+          <div class="progress-shell">
+            <div class="progress-bar" id="overview-progress"></div>
+          </div>
+          <div class="progress-info">
+            <span id="overview-paid">$0 paid</span>
+            <span id="overview-total">of $0 original</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h2>Debt Breakdown</h2></div>
+          <div class="chart-wrap"><canvas id="chart-breakdown"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Projected Payoff</h2></div>
+        <div class="chart-wrap tall"><canvas id="chart-projection"></canvas></div>
+      </div>
+    </section>
+
+    <!-- DEBTS -->
+    <section class="tab" id="tab-debts">
+      <header class="page-head">
+        <h1>Debts</h1>
+        <p class="muted">Every loan, card, or IOU — including rates and minimums.</p>
+      </header>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Add a Debt</h2>
+        </div>
+        <form class="form-grid form-grid-5" id="form-debt">
+          <label>Name
+            <input name="name" type="text" placeholder="Chase Credit Card" required />
+          </label>
+          <label>Balance ($)
+            <input name="balance" type="number" step="0.01" min="0" placeholder="3500.00" required />
+          </label>
+          <label>APR (%)
+            <input name="apr" type="number" step="0.01" min="0" placeholder="19.99" required />
+          </label>
+          <label>Type
+            <select name="type">
+              <option value="card" selected>Credit Card (scales)</option>
+              <option value="loan">Loan / Fixed</option>
+            </select>
+          </label>
+          <label>Minimum Payment ($)
+            <input name="minimum" type="number" step="0.01" min="0" placeholder="75.00" required />
+          </label>
+          <label>Credit Limit ($) <span class="label-hint">cards only</span>
+            <input name="creditLimit" type="number" step="0.01" min="0" placeholder="10000.00" />
+          </label>
+          <label class="checkbox-inline">
+            <input name="inCollections" type="checkbox" />
+            In Collections
+          </label>
+          <div class="form-actions">
+            <button type="submit" class="btn primary">Add Debt</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Your Debts</h2></div>
+        <div class="table-wrap">
+          <table class="table" id="table-debts">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Balance</th>
+                <th>Limit</th>
+                <th>Utilization</th>
+                <th>APR</th>
+                <th>Type</th>
+                <th>Collections</th>
+                <th>Minimum</th>
+                <th>Monthly Interest</th>
+                <th>Cost / Day</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot>
+              <tr>
+                <td>Totals</td>
+                <td id="debts-total">$0</td>
+                <td id="debts-limit-total">$0</td>
+                <td id="debts-util-total">—</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td id="debts-min-total">$0</td>
+                <td id="debts-interest-total">$0</td>
+                <td id="debts-daily-total">$0</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- INCOME -->
+    <section class="tab" id="tab-income">
+      <header class="page-head">
+        <h1>Income</h1>
+        <p class="muted">Monthly inflows — everything you earn or receive.</p>
+      </header>
+
+      <div class="card">
+        <div class="card-head"><h2>Add Job / Income</h2></div>
+        <form class="form-grid form-grid-5" id="form-income">
+          <label>Source
+            <input name="name" type="text" placeholder="Main Job" required />
+          </label>
+          <label>Pay Amount ($)
+            <input name="amount" type="number" step="0.01" min="0" placeholder="1200.00" required />
+          </label>
+          <label>Frequency
+            <select name="frequency">
+              <option value="weekly">Weekly</option>
+              <option value="biweekly">Bi-weekly</option>
+              <option value="semimonthly">Semi-monthly</option>
+              <option value="monthly" selected>Monthly</option>
+            </select>
+          </label>
+          <label>Category
+            <select name="category">
+              <option value="Salary">Salary</option>
+              <option value="Side Hustle">Side Hustle</option>
+              <option value="Investment">Investment</option>
+              <option value="Gift">Gift</option>
+              <option value="Other">Other</option>
+            </select>
+          </label>
+          <div class="form-actions">
+            <button type="submit" class="btn primary">Add Income</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Jobs &amp; Income Sources</h2></div>
+        <div class="table-wrap">
+          <table class="table" id="table-income">
+            <thead>
+              <tr><th>Source</th><th>Category</th><th>Pay</th><th>Frequency</th><th>Monthly</th><th>Income / Day</th><th></th></tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot>
+              <tr><td>Total Monthly</td><td></td><td></td><td></td><td id="income-total">$0</td><td id="income-daily-total">$0</td><td></td></tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- EXPENSES -->
+    <section class="tab" id="tab-expenses">
+      <header class="page-head">
+        <h1>Expenses</h1>
+        <p class="muted">Monthly outflows — bills, essentials, and everything in between.</p>
+      </header>
+
+      <div class="card">
+        <div class="card-head"><h2>Add Expense</h2></div>
+        <form class="form-grid" id="form-expense">
+          <label>Name
+            <input name="name" type="text" placeholder="Rent" required />
+          </label>
+          <label>Monthly Amount ($)
+            <input name="amount" type="number" step="0.01" min="0" placeholder="1200.00" required />
+          </label>
+          <label>Category
+            <select name="category">
+              <option value="Housing">Housing</option>
+              <option value="Food">Food</option>
+              <option value="Transport">Transport</option>
+              <option value="Utilities">Utilities</option>
+              <option value="Insurance">Insurance</option>
+              <option value="Subscriptions">Subscriptions</option>
+              <option value="Personal">Personal</option>
+              <option value="Other">Other</option>
+            </select>
+          </label>
+          <div class="form-actions">
+            <button type="submit" class="btn primary">Add Expense</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Expense List</h2></div>
+        <div class="table-wrap">
+          <table class="table" id="table-expenses">
+            <thead>
+              <tr><th>Name</th><th>Category</th><th>Monthly</th><th>Cost / Day</th><th></th></tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot>
+              <tr class="expense-debt-row"><td>Debt Minimums</td><td>Debt</td><td id="expenses-mins-monthly" class="neg">$0</td><td id="expenses-mins-daily" class="neg">$0</td><td></td></tr>
+              <tr class="expense-debt-row"><td>Debt Interest</td><td>Debt</td><td id="expenses-debt-monthly" class="neg">$0</td><td id="expenses-debt-daily" class="neg">$0</td><td></td></tr>
+              <tr><td><strong>Total Outflow</strong></td><td></td><td id="expenses-total">$0</td><td id="expenses-daily-total">$0</td><td></td></tr>
+              <tr class="expense-income-row"><td>Income</td><td></td><td id="expenses-income-monthly" class="pos">$0</td><td id="expenses-income-daily" class="pos">$0</td><td></td></tr>
+              <tr class="expense-net-row"><td><strong>Net</strong></td><td></td><td id="expenses-net-monthly">$0</td><td id="expenses-net-daily">$0</td><td></td></tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- EFFICIENCY -->
+    <section class="tab" id="tab-efficiency">
+      <header class="page-head">
+        <h1>Minimum Payment Freed</h1>
+        <p class="muted">Which debt frees up the most monthly cash flow if you throw extra money at it?</p>
+      </header>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Ranked by Cash Flow Freed</h2>
+          <label class="eff-amount-label">Apply $<input id="eff-amount" type="number" min="1" step="1" value="100" /></label>
+        </div>
+        <div class="table-wrap">
+          <table class="table" id="table-efficiency">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Balance</th>
+                <th>Current Min</th>
+                <th>Min After</th>
+                <th>Freed</th>
+                <th>To Pay Off</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- PLAN -->
+    <section class="tab" id="tab-plan">
+      <header class="page-head">
+        <h1>Payoff Plan</h1>
+        <p class="muted">Pick a strategy. See the math. Crush the debt.</p>
+      </header>
+
+      <div class="card">
+        <div class="card-head"><h2>Strategy</h2></div>
+        <div class="strategy-row">
+          <label class="radio-card">
+            <input type="radio" name="strategy" value="avalanche" checked />
+            <div>
+              <div class="radio-title">Avalanche</div>
+              <div class="radio-sub">Target highest APR first. Mathematically cheapest.</div>
+            </div>
+          </label>
+          <label class="radio-card">
+            <input type="radio" name="strategy" value="snowball" />
+            <div>
+              <div class="radio-title">Snowball</div>
+              <div class="radio-sub">Target smallest balance first. Quick wins for motivation.</div>
+            </div>
+          </label>
+          <label class="radio-card">
+            <input type="radio" name="strategy" value="credit-score" />
+            <div>
+              <div class="radio-title">Credit Score</div>
+              <div class="radio-sub">Pay collections first, then target highest utilization cards.</div>
+            </div>
+          </label>
+          <label class="radio-card">
+            <input type="radio" name="strategy" value="cashflow" />
+            <div>
+              <div class="radio-title">Cash Flow</div>
+              <div class="radio-sub">Free up monthly cash fastest. Targets lowest balance-to-minimum ratio.</div>
+            </div>
+          </label>
+        </div>
+
+        <div class="extra-row">
+          <label>Extra Monthly Payment ($)
+            <input type="number" id="extra-payment" step="0.01" min="0" placeholder="0.00" />
+            <div class="help" id="extra-help">Beyond minimums. Your available cash can cover this.</div>
+          </label>
+        </div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat card">
+          <div class="stat-label">Debt-Free In</div>
+          <div class="stat-value" id="plan-months">—</div>
+          <div class="stat-sub" id="plan-date">—</div>
+        </div>
+        <div class="stat card">
+          <div class="stat-label">Total Interest Paid</div>
+          <div class="stat-value neg" id="plan-interest">$0</div>
+          <div class="stat-sub">Over the life of the plan</div>
+        </div>
+        <div class="stat card">
+          <div class="stat-label">Total Paid</div>
+          <div class="stat-value" id="plan-total">$0</div>
+          <div class="stat-sub">Principal + interest</div>
+        </div>
+        <div class="stat card">
+          <div class="stat-label">Monthly Allocation</div>
+          <div class="stat-value" id="plan-monthly">$0</div>
+          <div class="stat-sub">Minimums + extra</div>
+        </div>
+      </div>
+
+      <div class="stat-grid stat-grid-3">
+        <div class="stat card">
+          <div class="stat-label">3 Months in Bank</div>
+          <div class="stat-value" id="milestone-3">—</div>
+          <div class="stat-sub" id="milestone-3-sub">target —</div>
+        </div>
+        <div class="stat card">
+          <div class="stat-label">6 Months in Bank</div>
+          <div class="stat-value" id="milestone-6">—</div>
+          <div class="stat-sub" id="milestone-6-sub">target —</div>
+        </div>
+        <div class="stat card">
+          <div class="stat-label">12 Months in Bank</div>
+          <div class="stat-value" id="milestone-12">—</div>
+          <div class="stat-sub" id="milestone-12-sub">target —</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Payoff Order</h2></div>
+        <div class="table-wrap">
+          <table class="table" id="table-order">
+            <thead>
+              <tr><th>#</th><th>Debt</th><th>Balance</th><th>APR</th><th>Paid Off In</th><th>Free Date</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Monthly Schedule</h2>
+        </div>
+        <div class="schedule-controls">
+          <label>Show
+            <select id="schedule-limit">
+              <option value="12">12 months</option>
+              <option value="24">24 months</option>
+              <option value="36" selected>36 months</option>
+              <option value="60">60 months</option>
+              <option value="9999">All months</option>
+            </select>
+          </label>
+          <div class="help" id="schedule-summary">—</div>
+        </div>
+        <div class="schedule-wrap">
+          <table class="table table-schedule" id="table-schedule">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROGRESS -->
+    <section class="tab" id="tab-progress">
+      <header class="page-head">
+        <h1>Progress</h1>
+        <p class="muted">Snapshot your debts over time and watch them fall.</p>
+      </header>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Take a Snapshot</h2>
+        </div>
+        <p class="muted" style="margin:0 0 14px">
+          Update balances on the Debts tab, then save a snapshot here to record today's total.
+        </p>
+        <div class="snapshot-row">
+          <button class="btn primary" id="btn-snapshot">Save Snapshot</button>
+          <div class="help">Current total: <strong id="snapshot-current">$0</strong></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Debt Over Time</h2></div>
+        <div class="chart-wrap tall"><canvas id="chart-history"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Snapshots</h2></div>
+        <div class="table-wrap">
+          <table class="table" id="table-history">
+            <thead>
+              <tr><th>Date</th><th>Total Debt</th><th>Change</th><th></th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="tab" id="tab-settings">
+      <header class="page-head">
+        <h1>Settings</h1>
+        <p class="muted">Manage your data.</p>
+      </header>
+
+      <div class="card">
+        <div class="card-head"><h2>Data</h2></div>
+        <div class="settings-row">
+          <button class="btn" id="btn-export">Export JSON</button>
+          <button class="btn" id="btn-import">Import JSON</button>
+          <button class="btn primary" id="btn-standalone">Download Standalone HTML</button>
+          <input type="file" id="file-import" accept="application/json" hidden />
+          <button class="btn danger" id="btn-reset">Reset Everything</button>
+        </div>
+        <p class="help" style="margin-top:14px">
+          All data lives in your browser's localStorage. Nothing is sent anywhere.
+          Export regularly if this matters to you.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Sample Data</h2></div>
+        <p class="muted" style="margin:0 0 12px">
+          Just exploring? Load a realistic example profile.
+        </p>
+        <button class="btn" id="btn-sample">Load Sample Data</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
