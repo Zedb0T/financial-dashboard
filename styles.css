@@ -653,6 +653,7 @@ button { font-family: inherit; }
   /* Bottom tab bar */
   .sidebar {
     position: fixed;
+    top: auto;
     bottom: 0;
     left: 0;
     right: 0;
