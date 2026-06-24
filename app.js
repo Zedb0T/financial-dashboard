@@ -213,6 +213,7 @@ function simulatePayoff(opts) {
     bankStart = 0,
     threshold = 6000,
     useRule = false,
+    holdZeroPct = false,
   } = opts;
 
   const empty = {
@@ -339,12 +340,29 @@ function simulatePayoff(opts) {
     for (const d of activeAfterMins) {
       if (extraBudget <= 0.005) break;
       if (d.balance <= 0.005) continue;
+      if (holdZeroPct && d.apr === 0) continue;
       const pay = Math.min(extraBudget, d.balance);
       d.balance -= pay;
       bank -= pay;
       extraBudget -= pay;
       totalPaid += pay;
       perDebt[d.id].payment += pay;
+    }
+
+    // 5b) lump-sum payoff of held 0% debts when bank can absorb it
+    if (holdZeroPct) {
+      const zeroPct = sim
+        .filter((d) => d.apr === 0 && d.balance > 0.005)
+        .sort((a, b) => a.balance - b.balance);
+      for (const d of zeroPct) {
+        if (bank - d.balance >= threshold) {
+          const pay = d.balance;
+          d.balance = 0;
+          bank -= pay;
+          totalPaid += pay;
+          perDebt[d.id].payment += pay;
+        }
+      }
     }
 
     // 6) record per-debt remaining + payoff month
@@ -437,6 +455,7 @@ function simOpts() {
     bankStart: a.bankBalance,
     threshold: a.emergencyFund,
     useRule: a.useRule,
+    holdZeroPct: !!state.settings.holdZeroPct,
   };
 }
 
@@ -581,6 +600,14 @@ function initForms() {
   const useRuleEl = document.getElementById('use-rule');
   useRuleEl.addEventListener('change', () => {
     state.settings.useEmergencyRule = useRuleEl.checked;
+    save();
+    renderAll();
+  });
+
+  // Hold 0% toggle
+  const holdZeroEl = document.getElementById('hold-zero-pct');
+  holdZeroEl.addEventListener('change', () => {
+    state.settings.holdZeroPct = holdZeroEl.checked;
     save();
     renderAll();
   });
@@ -1309,6 +1336,9 @@ function renderPlan() {
   // Disable extra input when rule is on
   extraEl.disabled = a.useRule;
   extraEl.style.opacity = a.useRule ? 0.5 : 1;
+
+  // Sync hold-zero checkbox
+  document.getElementById('hold-zero-pct').checked = !!state.settings.holdZeroPct;
 
   const sim = simulatePayoff(simOpts());
 
