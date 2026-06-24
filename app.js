@@ -337,31 +337,30 @@ function simulatePayoff(opts) {
       sim.filter((d) => d.balance > 0.005)
     );
     const targetId = activeAfterMins.length > 0 ? activeAfterMins[0].id : null;
-    for (const d of activeAfterMins) {
-      if (extraBudget <= 0.005) break;
-      if (d.balance <= 0.005) continue;
-      if (holdZeroPct && d.apr === 0) continue;
-      const pay = Math.min(extraBudget, d.balance);
-      d.balance -= pay;
-      bank -= pay;
-      extraBudget -= pay;
-      totalPaid += pay;
-      perDebt[d.id].payment += pay;
-    }
+    const holdTarget = holdZeroPct && activeAfterMins.length > 0
+      && activeAfterMins[0].apr === 0;
 
-    // 5b) lump-sum payoff of held 0% debts when bank can absorb it
-    if (holdZeroPct) {
-      const zeroPct = sim
-        .filter((d) => d.apr === 0 && d.balance > 0.005)
-        .sort((a, b) => a.balance - b.balance);
-      for (const d of zeroPct) {
-        if (bank - d.balance >= threshold) {
-          const pay = d.balance;
-          d.balance = 0;
-          bank -= pay;
-          totalPaid += pay;
-          perDebt[d.id].payment += pay;
-        }
+    if (holdTarget) {
+      // Strategy says focus a 0% debt — save the extra in bank instead
+      // and one-shot it when bank can cover balance + emergency fund
+      const d = activeAfterMins[0];
+      if (bank - d.balance >= threshold) {
+        const pay = d.balance;
+        d.balance = 0;
+        bank -= pay;
+        totalPaid += pay;
+        perDebt[d.id].payment += pay;
+      }
+    } else {
+      for (const d of activeAfterMins) {
+        if (extraBudget <= 0.005) break;
+        if (d.balance <= 0.005) continue;
+        const pay = Math.min(extraBudget, d.balance);
+        d.balance -= pay;
+        bank -= pay;
+        extraBudget -= pay;
+        totalPaid += pay;
+        perDebt[d.id].payment += pay;
       }
     }
 
