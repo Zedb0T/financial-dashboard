@@ -1,0 +1,15 @@
+{
+  "name": "Debt Freedom Dashboard",
+  "short_name": "Debt Free",
+  "description": "Track debts, plan payoff strategies, and reach financial freedom.",
+  "start_url": "/financial-dashboard/",
+  "scope": "/financial-dashboard/",
+  "display": "standalone",
+  "background_color": "#0f1419",
+  "theme_color": "#0f1419",
+  "orientation": "any",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
