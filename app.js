@@ -42,6 +42,7 @@ const defaultState = () => ({
   expenses: [],
   bonuses: [],
   snapshots: [],
+  reminders: [],
   settings: {
     strategy: 'avalanche',
     extra: 0,
@@ -66,6 +67,7 @@ function migrate(s) {
     }));
   }
   out.bonuses = out.bonuses || [];
+  out.reminders = out.reminders || [];
   delete out.payments;
   out.incomes = (out.incomes || []).map((i) => ({
     frequency: 'monthly',
@@ -746,6 +748,7 @@ function renderAll() {
   renderIncome();
   renderExpenses();
   renderEfficiency();
+  renderReminders();
   renderPlan();
   renderProgress();
 }
@@ -1546,6 +1549,220 @@ function renderSchedule(sim) {
   }
 }
 
+// ---- Reminders -----------------------------------------------------------
+const REMIND_CATEGORIES = {
+  bill: { label: 'Bill', color: '#f5c06a' },
+  debt: { label: 'Debt', color: '#ef6868' },
+  check: { label: 'Check', color: '#6ba9f0' },
+  savings: { label: 'Savings', color: '#6ee7a8' },
+  other: { label: 'Other', color: '#c78bf0' },
+};
+
+const REMIND_PRESETS = {
+  rent: { title: 'Pay Rent / Mortgage', category: 'bill', recur: 'monthly' },
+  electric: { title: 'Pay Electric Bill', category: 'bill', recur: 'monthly' },
+  water: { title: 'Pay Water Bill', category: 'bill', recur: 'monthly' },
+  internet: { title: 'Pay Internet Bill', category: 'bill', recur: 'monthly' },
+  phone: { title: 'Pay Phone Bill', category: 'bill', recur: 'monthly' },
+  insurance: { title: 'Pay Insurance', category: 'bill', recur: 'monthly' },
+  creditcard: { title: 'Pay Credit Card', category: 'debt', recur: 'monthly' },
+  checkbank: { title: 'Check Bank Balance', category: 'check', recur: 'weekly' },
+};
+
+function remindDaysUntil(dateStr) {
+  if (!dateStr) return null;
+  const today = new Date(todayISO());
+  const due = new Date(dateStr);
+  return Math.round((due - today) / 86400000);
+}
+
+function remindNextDate(dateStr, recur) {
+  const d = new Date(dateStr);
+  switch (recur) {
+    case 'weekly': d.setDate(d.getDate() + 7); break;
+    case 'biweekly': d.setDate(d.getDate() + 14); break;
+    case 'monthly': d.setMonth(d.getMonth() + 1); break;
+    case 'quarterly': d.setMonth(d.getMonth() + 3); break;
+    case 'yearly': d.setFullYear(d.getFullYear() + 1); break;
+  }
+  return d.toISOString().slice(0, 10);
+}
+
+function remindUrgencyLabel(days) {
+  if (days === null) return '';
+  if (days < 0) return `${Math.abs(days)}d overdue`;
+  if (days === 0) return 'Due today';
+  if (days === 1) return 'Due tomorrow';
+  if (days <= 7) return `${days}d left`;
+  return new Date(todayISO().replace(/-/g, '/').replace(/T.*/, '') + ' 00:00').toISOString().slice(0, 10) ? `${days}d` : `${days}d`;
+}
+
+function renderRemindItem(r) {
+  const cat = REMIND_CATEGORIES[r.category] || REMIND_CATEGORIES.other;
+  const days = remindDaysUntil(r.due);
+  let urgClass = '';
+  let urgText = '';
+  if (days !== null) {
+    if (days < 0) { urgClass = 'overdue'; urgText = `${Math.abs(days)}d overdue`; }
+    else if (days === 0) { urgClass = 'today'; urgText = 'Today'; }
+    else if (days === 1) { urgClass = 'tomorrow'; urgText = 'Tomorrow'; }
+    else if (days <= 3) { urgClass = 'soon'; urgText = `${days} days`; }
+    else if (days <= 7) { urgClass = 'thisweek'; urgText = `${days} days`; }
+    else { urgText = new Date(r.due).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
+  }
+  const recurLabel = r.recur ? ` &middot; repeats` : '';
+  const doneCheck = r.done ? ' checked' : '';
+  return `<div class="remind-item ${urgClass} ${r.done ? 'done' : ''}" data-id="${r.id}">
+    <label class="remind-check"><input type="checkbox"${doneCheck} data-remind-toggle="${r.id}" /><span class="remind-checkmark"></span></label>
+    <div class="remind-body">
+      <div class="remind-title">${escape(r.title)}</div>
+      <div class="remind-meta">
+        <span class="remind-cat" style="--cat-color:${cat.color}">${cat.label}</span>
+        ${urgText ? `<span class="remind-urg ${urgClass}">${urgText}</span>` : ''}
+        ${recurLabel ? `<span class="remind-recur">${recurLabel}</span>` : ''}
+      </div>
+    </div>
+    <button class="remind-del" data-remind-del="${r.id}" title="Delete">&times;</button>
+  </div>`;
+}
+
+function renderReminders() {
+  const items = state.reminders || [];
+  const active = items.filter(r => !r.done);
+  const done = items.filter(r => r.done);
+
+  const overdue = [];
+  const today = [];
+  const upcoming = [];
+  const nodue = [];
+
+  active.forEach(r => {
+    const days = remindDaysUntil(r.due);
+    if (days === null) nodue.push(r);
+    else if (days < 0) overdue.push(r);
+    else if (days === 0) today.push(r);
+    else upcoming.push(r);
+  });
+
+  overdue.sort((a, b) => (a.due > b.due ? 1 : -1));
+  today.sort((a, b) => a.title.localeCompare(b.title));
+  upcoming.sort((a, b) => (a.due > b.due ? 1 : -1));
+
+  const groups = [
+    { id: 'overdue', items: overdue },
+    { id: 'today', items: today },
+    { id: 'upcoming', items: upcoming },
+    { id: 'nodue', items: nodue },
+  ];
+
+  groups.forEach(g => {
+    const wrap = document.getElementById(`remind-${g.id}`);
+    const list = document.getElementById(`remind-${g.id}-list`);
+    if (!wrap || !list) return;
+    if (g.items.length) {
+      wrap.style.display = '';
+      list.innerHTML = g.items.map(renderRemindItem).join('');
+    } else {
+      wrap.style.display = 'none';
+      list.innerHTML = '';
+    }
+  });
+
+  const emptyEl = document.getElementById('remind-empty');
+  if (emptyEl) emptyEl.style.display = active.length ? 'none' : '';
+
+  const doneWrap = document.getElementById('remind-done-wrap');
+  const doneList = document.getElementById('remind-done-list');
+  if (doneWrap) doneWrap.style.display = done.length ? '' : 'none';
+  if (doneList) doneList.innerHTML = done.map(renderRemindItem).join('');
+}
+
+function initReminders() {
+  const form = document.getElementById('form-reminder');
+  if (!form) return;
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    state.reminders.push({
+      id: uid(),
+      title: fd.get('title').trim(),
+      due: fd.get('due') || '',
+      category: fd.get('category') || 'other',
+      recur: fd.get('recur') || '',
+      done: false,
+      created: todayISO(),
+    });
+    save(); renderReminders();
+    form.reset();
+    toast('Reminder added');
+  });
+
+  document.querySelectorAll('.remind-quick-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const preset = REMIND_PRESETS[btn.dataset.preset];
+      if (!preset) return;
+      state.reminders.push({
+        id: uid(),
+        title: preset.title,
+        due: '',
+        category: preset.category,
+        recur: preset.recur,
+        done: false,
+        created: todayISO(),
+      });
+      save(); renderReminders();
+      toast(`Added: ${preset.title}`);
+    });
+  });
+
+  const toggleBtn = document.getElementById('remind-toggle-done');
+  const doneDiv = document.getElementById('remind-done');
+  if (toggleBtn && doneDiv) {
+    toggleBtn.addEventListener('click', () => {
+      const show = doneDiv.style.display === 'none';
+      doneDiv.style.display = show ? '' : 'none';
+      toggleBtn.textContent = show ? 'Hide Completed' : 'Show Completed';
+    });
+  }
+
+  const clearBtn = document.getElementById('remind-clear-done');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      state.reminders = state.reminders.filter(r => !r.done);
+      save(); renderReminders();
+      toast('Cleared completed');
+    });
+  }
+
+  document.getElementById('tab-reminders').addEventListener('click', e => {
+    const toggleId = e.target.dataset?.remindToggle;
+    if (toggleId) {
+      const r = state.reminders.find(x => x.id === toggleId);
+      if (r) {
+        r.done = !r.done;
+        if (r.done && r.recur && r.due) {
+          state.reminders.push({
+            id: uid(),
+            title: r.title,
+            due: remindNextDate(r.due, r.recur),
+            category: r.category,
+            recur: r.recur,
+            done: false,
+            created: todayISO(),
+          });
+        }
+        save(); renderReminders();
+        if (r.done) toast('Done! Nice work.');
+      }
+    }
+    const delId = e.target.dataset?.remindDel;
+    if (delId) {
+      state.reminders = state.reminders.filter(x => x.id !== delId);
+      save(); renderReminders();
+    }
+  });
+}
+
 // ---- Progress ------------------------------------------------------------
 function renderProgress() {
   const total = sum(state.debts, 'balance');
@@ -1693,4 +1910,5 @@ function escape(str) {
 // ---------------------------------------------------------------------------
 initTabs();
 initForms();
+initReminders();
 renderAll();

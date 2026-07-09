@@ -596,6 +596,136 @@ button { font-family: inherit; }
 }
 .schedule-cards { display: none; }
 
+/* REMINDERS */
+.remind-group { margin-bottom: 12px; }
+.remind-group-head {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  border-left: 3px solid;
+}
+.remind-group-head.overdue { color: var(--danger); border-color: var(--danger); background: rgba(239,104,104,0.08); }
+.remind-group-head.today { color: #f5c06a; border-color: #f5c06a; background: rgba(245,192,106,0.08); }
+.remind-group-head.upcoming { color: var(--accent); border-color: var(--accent); background: rgba(110,231,168,0.06); }
+.remind-group-head.nodue { color: var(--text-dim); border-color: var(--border); }
+.remind-group-head.done { color: var(--text-dim); border-color: var(--border); }
+.remind-list {
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  overflow: hidden;
+}
+.remind-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+.remind-item:last-child { border-bottom: none; }
+.remind-item.overdue { background: rgba(239,104,104,0.05); }
+.remind-item.today { background: rgba(245,192,106,0.05); }
+.remind-item.done { opacity: 0.5; }
+.remind-item.done .remind-title { text-decoration: line-through; }
+.remind-check {
+  position: relative;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.remind-check input { position: absolute; opacity: 0; width: 0; height: 0; }
+.remind-checkmark {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.remind-check input:checked + .remind-checkmark {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.remind-check input:checked + .remind-checkmark::after {
+  content: '\2713';
+  color: var(--bg);
+  font-size: 13px;
+  font-weight: 700;
+}
+.remind-body { flex: 1; min-width: 0; }
+.remind-title { font-size: 14px; font-weight: 500; margin-bottom: 3px; }
+.remind-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 11px; }
+.remind-cat {
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: rgba(128,128,128,0.15);
+  color: var(--cat-color);
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.remind-urg { font-weight: 600; }
+.remind-urg.overdue { color: var(--danger); }
+.remind-urg.today { color: #f5c06a; }
+.remind-urg.tomorrow { color: #f5c06a; }
+.remind-urg.soon { color: var(--accent); }
+.remind-recur { color: var(--text-dim); }
+.remind-del {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.remind-del:hover { color: var(--danger); background: rgba(239,104,104,0.1); }
+.remind-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-dim);
+}
+.remind-empty-icon {
+  font-size: 48px;
+  color: var(--accent);
+  opacity: 0.4;
+  margin-bottom: 12px;
+}
+.remind-quick-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.remind-quick-btn {
+  font-size: 13px;
+  padding: 10px;
+  text-align: center;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+.remind-quick-btn:hover { background: var(--bg-elev-2); border-color: var(--accent); }
+.remind-toggle-done {
+  width: 100%;
+  text-align: center;
+  font-size: 13px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  margin-bottom: 8px;
+}
+
 /* SNAPSHOT */
 .snapshot-row {
   display: flex;
@@ -735,6 +865,7 @@ button { font-family: inherit; }
   .nav-btn[data-tab="income"]::after { content: "Income"; }
   .nav-btn[data-tab="expenses"]::after { content: "Bills"; }
   .nav-btn[data-tab="bank"]::after { content: "Bank"; }
+  .nav-btn[data-tab="reminders"]::after { content: "Tasks"; }
   .nav-btn[data-tab="efficiency"]::after { content: "Rank"; }
   .nav-btn[data-tab="plan"]::after { content: "Plan"; }
   .nav-btn[data-tab="progress"]::after { content: "Progress"; }
@@ -772,6 +903,10 @@ button { font-family: inherit; }
   .nav-btn[data-tab="bank"]::before {
     -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M4 10h3v7H4zm6.5 0h3v7h-3zM2 19h20v3H2zm15-9h3v7h-3zM12 1L2 6v2h20V6z'/%3E%3C/svg%3E");
     mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M4 10h3v7H4zm6.5 0h3v7h-3zM2 19h20v3H2zm15-9h3v7h-3zM12 1L2 6v2h20V6z'/%3E%3C/svg%3E");
+  }
+  .nav-btn[data-tab="reminders"]::before {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z'/%3E%3C/svg%3E");
   }
   .nav-btn[data-tab="efficiency"]::before {
     -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M13 2L4 14h7v8l9-12h-7z'/%3E%3C/svg%3E");

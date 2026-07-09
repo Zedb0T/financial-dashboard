@@ -33,6 +33,7 @@
       <button class="nav-btn" data-tab="income">Income</button>
       <button class="nav-btn" data-tab="expenses">Expenses</button>
       <button class="nav-btn" data-tab="bank">Bank</button>
+      <button class="nav-btn" data-tab="reminders">Reminders</button>
       <button class="nav-btn" data-tab="efficiency">Efficiency</button>
       <button class="nav-btn" data-tab="plan">Payoff Plan</button>
       <button class="nav-btn" data-tab="progress">Progress</button>
@@ -366,6 +367,93 @@
               <tr><td>Total Bonuses</td><td id="bonuses-total">$0</td><td colspan="2"></td></tr>
             </tfoot>
           </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- REMINDERS -->
+    <section class="tab" id="tab-reminders">
+      <header class="page-head">
+        <h1>Reminders</h1>
+        <p class="muted">Never miss a payment or task. Stay on top of your finances.</p>
+      </header>
+
+      <div id="remind-overdue" class="remind-group" style="display:none">
+        <div class="remind-group-head overdue">Overdue</div>
+        <div class="remind-list" id="remind-overdue-list"></div>
+      </div>
+      <div id="remind-today" class="remind-group" style="display:none">
+        <div class="remind-group-head today">Today</div>
+        <div class="remind-list" id="remind-today-list"></div>
+      </div>
+      <div id="remind-upcoming" class="remind-group" style="display:none">
+        <div class="remind-group-head upcoming">Upcoming</div>
+        <div class="remind-list" id="remind-upcoming-list"></div>
+      </div>
+      <div id="remind-nodue" class="remind-group" style="display:none">
+        <div class="remind-group-head nodue">No Due Date</div>
+        <div class="remind-list" id="remind-nodue-list"></div>
+      </div>
+
+      <div id="remind-empty" class="remind-empty card">
+        <div class="remind-empty-icon">&#10003;</div>
+        <p>No reminders yet. Add one below!</p>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="card-head"><h2>Add Reminder</h2></div>
+        <form id="form-reminder" class="form-grid">
+          <label>What do you need to do?
+            <input name="title" type="text" placeholder="e.g. Pay electric bill" required />
+          </label>
+          <label>Due Date
+            <input name="due" type="date" />
+          </label>
+          <label>Category
+            <select name="category">
+              <option value="bill">Bill Payment</option>
+              <option value="debt">Debt Payment</option>
+              <option value="check">Check Balance</option>
+              <option value="savings">Savings Goal</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label>Repeat
+            <select name="recur">
+              <option value="">Don't repeat</option>
+              <option value="weekly">Every week</option>
+              <option value="biweekly">Every 2 weeks</option>
+              <option value="monthly">Every month</option>
+              <option value="quarterly">Every 3 months</option>
+              <option value="yearly">Every year</option>
+            </select>
+          </label>
+          <div class="form-actions">
+            <button type="submit" class="btn primary">Add Reminder</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="remind-quick card" style="margin-top:12px">
+        <div class="card-head"><h2>Quick Add</h2></div>
+        <div class="remind-quick-grid">
+          <button class="btn remind-quick-btn" data-preset="rent">Rent / Mortgage</button>
+          <button class="btn remind-quick-btn" data-preset="electric">Electric Bill</button>
+          <button class="btn remind-quick-btn" data-preset="water">Water Bill</button>
+          <button class="btn remind-quick-btn" data-preset="internet">Internet Bill</button>
+          <button class="btn remind-quick-btn" data-preset="phone">Phone Bill</button>
+          <button class="btn remind-quick-btn" data-preset="insurance">Insurance</button>
+          <button class="btn remind-quick-btn" data-preset="creditcard">Credit Card</button>
+          <button class="btn remind-quick-btn" data-preset="checkbank">Check Bank Balance</button>
+        </div>
+      </div>
+
+      <div id="remind-done-wrap" style="display:none; margin-top:16px">
+        <button class="btn remind-toggle-done" id="remind-toggle-done">Show Completed</button>
+        <div id="remind-done" class="remind-group" style="display:none">
+          <div class="remind-group-head done">Completed</div>
+          <div class="remind-list" id="remind-done-list"></div>
+          <button class="btn danger" id="remind-clear-done" style="margin-top:8px; width:100%">Clear Completed</button>
         </div>
       </div>
     </section>
