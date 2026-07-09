@@ -1504,6 +1504,46 @@ function renderSchedule(sim) {
     showing < total
       ? `Showing first ${showing} of ${total} months. Increase the limit to see more.`
       : `Showing all ${total} months.`;
+
+  // Mobile cards
+  const cardsEl = document.getElementById('schedule-cards');
+  if (cardsEl) {
+    cardsEl.innerHTML = shown.map(row => {
+      const paidOff = row.totalRemaining < 0.005;
+      const dateLabel = dateInMonths(row.month);
+      const minExp = monthlyExpenses + (row.minimumsPaid || 0);
+      const extraCash = monthlyIncome - minExp;
+      const debtRows = debts.map((d, i) => {
+        const pd = row.perDebt[d.id] || { payment: 0, remaining: 0 };
+        const isTarget = row.targetId === d.id;
+        const color = PALETTE[i % PALETTE.length];
+        const paid = pd.payment > 0.005 ? fmt0(pd.payment) : '—';
+        const rem = pd.remaining > 0.005 ? fmt0(pd.remaining) : '✓';
+        return `<div class="sc-debt${isTarget ? ' sc-target' : ''}">
+          <span class="sc-dot" style="background:${color}"></span>
+          <span class="sc-debt-name">${escape(d.name)}</span>
+          <span class="sc-debt-paid">${paid}</span>
+          <span class="sc-debt-rem">${rem}</span>
+        </div>`;
+      }).join('');
+      return `<div class="sc-card${paidOff ? ' sc-done' : ''}">
+        <div class="sc-head">
+          <span class="sc-num">${row.month}</span>
+          <span class="sc-date">${dateLabel}</span>
+        </div>
+        <div class="sc-flow">
+          <div class="sc-flow-item"><span>Bank</span><span class="sc-bank">${fmt0(row.bank)}</span></div>
+          <div class="sc-flow-item"><span>Expenses</span><span class="sc-exp">${fmt0(minExp)}</span></div>
+          <div class="sc-flow-item"><span>Extra</span><span class="sc-extra ${extraCash >= 0 ? 'pos' : 'neg'}">${fmt0(extraCash)}</span></div>
+        </div>
+        <div class="sc-debts">${debtRows}</div>
+        <div class="sc-total">
+          <span>Paid <strong>${fmt0(row.totalPaidThisMonth)}</strong></span>
+          <span>Left <strong>${row.totalRemaining > 0.005 ? fmt0(row.totalRemaining) : '✓'}</strong></span>
+        </div>
+      </div>`;
+    }).join('');
+  }
 }
 
 // ---- Progress ------------------------------------------------------------

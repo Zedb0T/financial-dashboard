@@ -594,6 +594,7 @@ button { font-family: inherit; }
   background: var(--bg-elev);
   z-index: 2;
 }
+.schedule-cards { display: none; }
 
 /* SNAPSHOT */
 .snapshot-row {
@@ -847,9 +848,93 @@ button { font-family: inherit; }
   .chart-wrap { height: 180px; }
   .chart-wrap.tall { height: 240px; }
 
-  /* Schedule */
-  .schedule-wrap { max-height: 400px; }
+  /* Schedule — swap table for cards on mobile */
+  .schedule-wrap { display: none; }
   .schedule-controls { gap: 8px; }
+  .schedule-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 70vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .sc-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+  }
+  .sc-card.sc-done { opacity: 0.5; }
+  .sc-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sc-num {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .sc-date {
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .sc-flow {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 4px;
+    margin-bottom: 10px;
+    font-size: 12px;
+  }
+  .sc-flow-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .sc-flow-item > span:first-child { color: var(--text-dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .sc-bank { font-weight: 600; }
+  .sc-exp { color: var(--danger); }
+  .sc-extra { font-weight: 600; }
+  .sc-extra.pos { color: var(--accent); }
+  .sc-extra.neg { color: var(--danger); }
+  .sc-debts {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+  .sc-debt {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: 6px;
+    align-items: center;
+    font-size: 13px;
+    padding: 4px 0;
+  }
+  .sc-debt.sc-target { font-weight: 600; }
+  .sc-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .sc-debt-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sc-debt-paid { color: var(--accent); text-align: right; }
+  .sc-debt-rem { color: var(--text-dim); text-align: right; }
+  .sc-total {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  .sc-total strong { color: var(--text); }
 
   /* Countdown */
   .countdown-date { font-size: 24px; }
