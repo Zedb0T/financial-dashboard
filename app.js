@@ -1531,8 +1531,7 @@ function renderSchedule(sim) {
       }).join('');
       return `<div class="sc-card${paidOff ? ' sc-done' : ''}">
         <div class="sc-head">
-          <span class="sc-num">${row.month}</span>
-          <span class="sc-date">${dateLabel}</span>
+          <span class="sc-num">${row.month} - ${dateLabel}</span>
         </div>
         <div class="sc-flow">
           <div class="sc-flow-item"><span>Bank</span><span class="sc-bank">${fmt0(row.bank)}</span></div>
