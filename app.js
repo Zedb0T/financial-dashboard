@@ -1701,10 +1701,12 @@ function initReminders() {
     btn.addEventListener('click', () => {
       const preset = REMIND_PRESETS[btn.dataset.preset];
       if (!preset) return;
+      const oneWeek = new Date();
+      oneWeek.setDate(oneWeek.getDate() + 7);
       state.reminders.push({
         id: uid(),
         title: preset.title,
-        due: '',
+        due: oneWeek.toISOString().slice(0, 10),
         category: preset.category,
         recur: preset.recur,
         done: false,
@@ -1761,6 +1763,105 @@ function initReminders() {
       save(); renderReminders();
     }
   });
+}
+
+// ---- Notifications -------------------------------------------------------
+function notifyPermissionGranted() {
+  return typeof Notification !== 'undefined' && Notification.permission === 'granted';
+}
+
+function requestNotifyPermission() {
+  if (typeof Notification === 'undefined') return Promise.resolve('denied');
+  return Notification.requestPermission();
+}
+
+function checkAndNotify() {
+  if (!notifyPermissionGranted()) return;
+  const today = todayISO();
+  const notifiedKey = 'fd:notified:' + today;
+  const alreadyNotified = JSON.parse(localStorage.getItem(notifiedKey) || '[]');
+
+  const active = (state.reminders || []).filter(r => !r.done && r.due);
+  const overdue = active.filter(r => r.due < today && !alreadyNotified.includes(r.id));
+  const dueToday = active.filter(r => r.due === today && !alreadyNotified.includes(r.id));
+
+  const newlyNotified = [];
+
+  overdue.forEach(r => {
+    const days = Math.abs(remindDaysUntil(r.due));
+    new Notification('Overdue Reminder', {
+      body: `${r.title} — ${days} day${days > 1 ? 's' : ''} overdue`,
+      icon: 'icon-192.png',
+      tag: r.id,
+    });
+    newlyNotified.push(r.id);
+  });
+
+  dueToday.forEach(r => {
+    new Notification('Due Today', {
+      body: r.title,
+      icon: 'icon-192.png',
+      tag: r.id,
+    });
+    newlyNotified.push(r.id);
+  });
+
+  if (newlyNotified.length) {
+    localStorage.setItem(notifiedKey, JSON.stringify([...alreadyNotified, ...newlyNotified]));
+  }
+}
+
+function initNotifications() {
+  const btn = document.getElementById('remind-notify-btn');
+  const status = document.getElementById('remind-notify-status');
+  if (!btn || !status) return;
+
+  function updateUI() {
+    if (typeof Notification === 'undefined') {
+      btn.textContent = 'Not Supported';
+      btn.disabled = true;
+      status.textContent = 'Your browser does not support notifications.';
+      return;
+    }
+    if (Notification.permission === 'granted') {
+      btn.textContent = 'Notifications On';
+      btn.classList.add('active');
+      btn.disabled = false;
+      status.textContent = 'You\'ll get notified about overdue and due-today tasks.';
+    } else if (Notification.permission === 'denied') {
+      btn.textContent = 'Blocked';
+      btn.disabled = true;
+      status.textContent = 'Notifications were blocked. Enable them in your browser settings.';
+    } else {
+      btn.textContent = 'Enable Notifications';
+      btn.classList.remove('active');
+      btn.disabled = false;
+      status.textContent = 'Get alerted when tasks are due or overdue.';
+    }
+  }
+
+  updateUI();
+
+  btn.addEventListener('click', () => {
+    if (Notification.permission === 'granted') {
+      new Notification('Reminders Active', {
+        body: 'You\'re all set — notifications are working!',
+        icon: 'icon-192.png',
+      });
+      return;
+    }
+    requestNotifyPermission().then(perm => {
+      updateUI();
+      if (perm === 'granted') {
+        checkAndNotify();
+        toast('Notifications enabled!');
+      }
+    });
+  });
+
+  // Check on load and every 30 minutes
+  checkAndNotify();
+  setInterval(checkAndNotify, 30 * 60 * 1000);
 }
 
 // ---- Progress ------------------------------------------------------------
@@ -1911,4 +2012,5 @@ function escape(str) {
 initTabs();
 initForms();
 initReminders();
+initNotifications();
 renderAll();
