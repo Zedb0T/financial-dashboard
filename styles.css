@@ -734,6 +734,7 @@ button { font-family: inherit; }
   .nav-btn[data-tab="debts"]::after { content: "Debts"; }
   .nav-btn[data-tab="income"]::after { content: "Income"; }
   .nav-btn[data-tab="expenses"]::after { content: "Bills"; }
+  .nav-btn[data-tab="bank"]::after { content: "Bank"; }
   .nav-btn[data-tab="efficiency"]::after { content: "Rank"; }
   .nav-btn[data-tab="plan"]::after { content: "Plan"; }
   .nav-btn[data-tab="progress"]::after { content: "Progress"; }
@@ -767,6 +768,10 @@ button { font-family: inherit; }
   .nav-btn[data-tab="expenses"]::before {
     -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6zm2-7h8v2H8v-2zm0 4h5v2H8v-2zm0-8h3v2H8V9z'/%3E%3C/svg%3E");
     mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6zm2-7h8v2H8v-2zm0 4h5v2H8v-2zm0-8h3v2H8V9z'/%3E%3C/svg%3E");
+  }
+  .nav-btn[data-tab="bank"]::before {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M4 10h3v7H4zm6.5 0h3v7h-3zM2 19h20v3H2zm15-9h3v7h-3zM12 1L2 6v2h20V6z'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M4 10h3v7H4zm6.5 0h3v7h-3zM2 19h20v3H2zm15-9h3v7h-3zM12 1L2 6v2h20V6z'/%3E%3C/svg%3E");
   }
   .nav-btn[data-tab="efficiency"]::before {
     -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M13 2L4 14h7v8l9-12h-7z'/%3E%3C/svg%3E");

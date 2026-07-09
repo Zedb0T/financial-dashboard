@@ -32,6 +32,7 @@
       <button class="nav-btn" data-tab="debts">Debts</button>
       <button class="nav-btn" data-tab="income">Income</button>
       <button class="nav-btn" data-tab="expenses">Expenses</button>
+      <button class="nav-btn" data-tab="bank">Bank</button>
       <button class="nav-btn" data-tab="efficiency">Efficiency</button>
       <button class="nav-btn" data-tab="plan">Payoff Plan</button>
       <button class="nav-btn" data-tab="progress">Progress</button>
@@ -59,7 +60,7 @@
         <div class="stat card">
           <div class="stat-label">Bank Balance</div>
           <div class="stat-value" id="stat-bank">$0</div>
-          <div class="stat-sub" id="stat-bank-sub">Edit in card below</div>
+          <div class="stat-sub" id="stat-bank-sub">Emergency rule off</div>
         </div>
         <div class="stat card">
           <div class="stat-label">Monthly Income</div>
@@ -75,66 +76,6 @@
           <div class="stat-label">Available for Debt</div>
           <div class="stat-value" id="stat-available">$0</div>
           <div class="stat-sub" id="stat-available-sub">income − expenses</div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-head"><h2>Bank Account &amp; Emergency Fund</h2></div>
-        <div class="bank-grid">
-          <label>Current Bank Balance ($)
-            <input id="bank-balance" type="number" step="0.01" min="0" placeholder="0.00" />
-          </label>
-          <label>Emergency Fund Threshold ($)
-            <input id="emergency-fund" type="number" step="0.01" min="0" placeholder="6000.00" />
-          </label>
-          <div class="bank-status-cell">
-            <div class="stat-label">Buffer Status</div>
-            <div class="stat-value" id="bank-buffer-value">—</div>
-            <div class="stat-sub" id="bank-buffer-sub">vs. threshold</div>
-          </div>
-        </div>
-        <label class="rule-toggle">
-          <input id="use-rule" type="checkbox" />
-          <div>
-            <div class="rule-title">Apply Emergency Fund Rule</div>
-            <div class="rule-sub" id="rule-sub">
-              Pay only minimums until bank hits threshold. Then at month-end, anything over threshold goes to the strategy's #1 target.
-            </div>
-          </div>
-        </label>
-      </div>
-
-      <div class="card">
-        <div class="card-head"><h2>One-Time Bonus</h2></div>
-        <form class="form-grid" id="form-bonus">
-          <label>Amount ($)
-            <input name="amount" type="number" step="0.01" min="0.01" placeholder="2000.00" required />
-          </label>
-          <label>Date
-            <input name="date" type="date" />
-          </label>
-          <label>Note (optional)
-            <input name="note" type="text" placeholder="Tax refund, bonus, gift, etc." />
-          </label>
-          <div class="form-actions">
-            <button type="submit" class="btn primary">Add to Bank</button>
-          </div>
-        </form>
-        <p class="help" style="margin-top:10px">
-          Adds the amount to your bank balance. With the emergency rule on, anything that pushes you past the threshold
-          will flow to your debt target at month-end.
-        </p>
-
-        <div class="table-wrap" style="margin-top:14px">
-          <table class="table" id="table-bonuses">
-            <thead>
-              <tr><th>Date</th><th>Amount</th><th>Note</th><th></th></tr>
-            </thead>
-            <tbody></tbody>
-            <tfoot>
-              <tr><td>Total Bonuses</td><td id="bonuses-total">$0</td><td colspan="2"></td></tr>
-            </tfoot>
-          </table>
         </div>
       </div>
 
@@ -355,6 +296,74 @@
               <tr><td><strong>Total Outflow</strong></td><td></td><td id="expenses-total">$0</td><td id="expenses-daily-total">$0</td><td></td></tr>
               <tr class="expense-income-row"><td>Income</td><td></td><td id="expenses-income-monthly" class="pos">$0</td><td id="expenses-income-daily" class="pos">$0</td><td></td></tr>
               <tr class="expense-net-row"><td><strong>Net</strong></td><td></td><td id="expenses-net-monthly">$0</td><td id="expenses-net-daily">$0</td><td></td></tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- BANK -->
+    <section class="tab" id="tab-bank">
+      <header class="page-head">
+        <h1>Bank &amp; Savings</h1>
+        <p class="muted">Manage your bank balance, emergency fund, and one-time windfalls.</p>
+      </header>
+
+      <div class="card">
+        <div class="card-head"><h2>Bank Account &amp; Emergency Fund</h2></div>
+        <div class="bank-grid">
+          <label>Current Bank Balance ($)
+            <input id="bank-balance" type="number" step="0.01" min="0" placeholder="0.00" />
+          </label>
+          <label>Emergency Fund Threshold ($)
+            <input id="emergency-fund" type="number" step="0.01" min="0" placeholder="6000.00" />
+          </label>
+          <div class="bank-status-cell">
+            <div class="stat-label">Buffer Status</div>
+            <div class="stat-value" id="bank-buffer-value">—</div>
+            <div class="stat-sub" id="bank-buffer-sub">vs. threshold</div>
+          </div>
+        </div>
+        <label class="rule-toggle">
+          <input id="use-rule" type="checkbox" />
+          <div>
+            <div class="rule-title">Apply Emergency Fund Rule</div>
+            <div class="rule-sub" id="rule-sub">
+              Pay only minimums until bank hits threshold. Then at month-end, anything over threshold goes to the strategy's #1 target.
+            </div>
+          </div>
+        </label>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>One-Time Bonus</h2></div>
+        <form class="form-grid" id="form-bonus">
+          <label>Amount ($)
+            <input name="amount" type="number" step="0.01" min="0.01" placeholder="2000.00" required />
+          </label>
+          <label>Date
+            <input name="date" type="date" />
+          </label>
+          <label>Note (optional)
+            <input name="note" type="text" placeholder="Tax refund, bonus, gift, etc." />
+          </label>
+          <div class="form-actions">
+            <button type="submit" class="btn primary">Add to Bank</button>
+          </div>
+        </form>
+        <p class="help" style="margin-top:10px">
+          Adds the amount to your bank balance. With the emergency rule on, anything that pushes you past the threshold
+          will flow to your debt target at month-end.
+        </p>
+
+        <div class="table-wrap" style="margin-top:14px">
+          <table class="table" id="table-bonuses">
+            <thead>
+              <tr><th>Date</th><th>Amount</th><th>Note</th><th></th></tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot>
+              <tr><td>Total Bonuses</td><td id="bonuses-total">$0</td><td colspan="2"></td></tr>
             </tfoot>
           </table>
         </div>
