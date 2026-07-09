@@ -1,4 +1,4 @@
-const CACHE_NAME = 'debt-free-v1';
+const CACHE_NAME = 'debt-free-v2';
 const ASSETS = [
   '/financial-dashboard/',
   '/financial-dashboard/index.html',
@@ -23,6 +23,20 @@ self.addEventListener('activate', e => {
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
     ).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const c of list) {
+        if (c.url.includes('financial-dashboard') || c.url.includes('index.html')) {
+          return c.focus();
+        }
+      }
+      return clients.openWindow('./');
+    })
   );
 });
 

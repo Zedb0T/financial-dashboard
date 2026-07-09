@@ -734,6 +734,11 @@ button { font-family: inherit; }
 }
 .remind-notify-title { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
 .remind-notify-sub { font-size: 12px; color: var(--text-dim); }
+.remind-notify-btns {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
 .remind-notify-inner .btn {
   flex-shrink: 0;
   white-space: nowrap;

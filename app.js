@@ -1766,13 +1766,20 @@ function initReminders() {
 }
 
 // ---- Notifications -------------------------------------------------------
+function getSwReg() {
+  if (!('serviceWorker' in navigator)) return Promise.resolve(null);
+  return navigator.serviceWorker.ready;
+}
+
 function notifyPermissionGranted() {
   return typeof Notification !== 'undefined' && Notification.permission === 'granted';
 }
 
-function requestNotifyPermission() {
-  if (typeof Notification === 'undefined') return Promise.resolve('denied');
-  return Notification.requestPermission();
+function swNotify(title, opts) {
+  return getSwReg().then(reg => {
+    if (reg) return reg.showNotification(title, opts);
+    if (typeof Notification !== 'undefined') return new Notification(title, opts);
+  });
 }
 
 function checkAndNotify() {
@@ -1789,7 +1796,7 @@ function checkAndNotify() {
 
   overdue.forEach(r => {
     const days = Math.abs(remindDaysUntil(r.due));
-    new Notification('Overdue Reminder', {
+    swNotify('Overdue Reminder', {
       body: `${r.title} — ${days} day${days > 1 ? 's' : ''} overdue`,
       icon: 'icon-192.png',
       tag: r.id,
@@ -1798,7 +1805,7 @@ function checkAndNotify() {
   });
 
   dueToday.forEach(r => {
-    new Notification('Due Today', {
+    swNotify('Due Today', {
       body: r.title,
       icon: 'icon-192.png',
       tag: r.id,
@@ -1813,6 +1820,7 @@ function checkAndNotify() {
 
 function initNotifications() {
   const btn = document.getElementById('remind-notify-btn');
+  const testBtn = document.getElementById('remind-notify-test');
   const status = document.getElementById('remind-notify-status');
   if (!btn || !status) return;
 
@@ -1821,6 +1829,7 @@ function initNotifications() {
       btn.textContent = 'Not Supported';
       btn.disabled = true;
       status.textContent = 'Your browser does not support notifications.';
+      if (testBtn) testBtn.style.display = 'none';
       return;
     }
     if (Notification.permission === 'granted') {
@@ -1828,15 +1837,18 @@ function initNotifications() {
       btn.classList.add('active');
       btn.disabled = false;
       status.textContent = 'You\'ll get notified about overdue and due-today tasks.';
+      if (testBtn) testBtn.style.display = '';
     } else if (Notification.permission === 'denied') {
       btn.textContent = 'Blocked';
       btn.disabled = true;
       status.textContent = 'Notifications were blocked. Enable them in your browser settings.';
+      if (testBtn) testBtn.style.display = 'none';
     } else {
       btn.textContent = 'Enable Notifications';
       btn.classList.remove('active');
       btn.disabled = false;
       status.textContent = 'Get alerted when tasks are due or overdue.';
+      if (testBtn) testBtn.style.display = 'none';
     }
   }
 
@@ -1844,13 +1856,13 @@ function initNotifications() {
 
   btn.addEventListener('click', () => {
     if (Notification.permission === 'granted') {
-      new Notification('Reminders Active', {
+      swNotify('Reminders Active', {
         body: 'You\'re all set — notifications are working!',
         icon: 'icon-192.png',
       });
       return;
     }
-    requestNotifyPermission().then(perm => {
+    Notification.requestPermission().then(perm => {
       updateUI();
       if (perm === 'granted') {
         checkAndNotify();
@@ -1858,6 +1870,20 @@ function initNotifications() {
       }
     });
   });
+
+  if (testBtn) {
+    testBtn.addEventListener('click', () => {
+      swNotify('Test Notification', {
+        body: 'If you see this, push notifications are working!',
+        icon: 'icon-192.png',
+        tag: 'debug-test-' + Date.now(),
+      }).then(() => {
+        toast('Test notification sent');
+      }).catch(err => {
+        toast('Notification failed: ' + err.message, 'error');
+      });
+    });
+  }
 
   // Check on load and every 30 minutes
   checkAndNotify();
