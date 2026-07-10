@@ -1,9 +1,11 @@
 package io.github.zedb0t.debtfreedom;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
@@ -15,6 +17,12 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+
+import androidx.work.ExistingPeriodicWorkPolicy;
+import androidx.work.PeriodicWorkRequest;
+import androidx.work.WorkManager;
+
+import java.util.concurrent.TimeUnit;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -62,8 +70,25 @@ public class MainActivity extends Activity {
             }
         });
 
+        webView.addJavascriptInterface(new ReminderBridge(this), "AndroidBridge");
         webView.loadUrl(APP_URL);
+
+        setupNotifications();
         checkForUpdate();
+    }
+
+    private void setupNotifications() {
+        ReminderWorker.ensureChannel(this);
+
+        if (Build.VERSION.SDK_INT >= 33
+            && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1);
+        }
+
+        PeriodicWorkRequest req = new PeriodicWorkRequest.Builder(
+            ReminderWorker.class, 15, TimeUnit.MINUTES).build();
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "reminder-check", ExistingPeriodicWorkPolicy.KEEP, req);
     }
 
     private void checkForUpdate() {

@@ -103,9 +103,25 @@ function loadState() {
 
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  androidBridgeSync();
+}
+
+// Inside the Android WebView app, window.AndroidBridge is injected natively.
+// Hand it the active reminders so the app can fire notifications in the
+// background (WebView has no web Push API).
+function androidBridgeSync() {
+  try {
+    if (window.AndroidBridge && window.AndroidBridge.syncReminders) {
+      window.AndroidBridge.syncReminders(JSON.stringify({
+        reminders: (state.reminders || []).filter(r => !r.done && r.due),
+        snoozeUntil: Number(localStorage.getItem('fd:snoozeUntil')) || 0,
+      }));
+    }
+  } catch (_) {}
 }
 
 let state = loadState();
+androidBridgeSync();
 let charts = {};
 
 // ---------------------------------------------------------------------------
@@ -1923,12 +1939,14 @@ function setSnooze(minutes) {
   const until = Date.now() + minutes * 60 * 1000;
   localStorage.setItem('fd:snoozeUntil', String(until));
   syncRemindersToServer();
+  androidBridgeSync();
   updateSnoozeUI();
 }
 
 function cancelSnooze() {
   localStorage.removeItem('fd:snoozeUntil');
   syncRemindersToServer();
+  androidBridgeSync();
   updateSnoozeUI();
 }
 
@@ -1970,6 +1988,14 @@ function initNotifications() {
   if (!btn || !status) return;
 
   function updateUI() {
+    if (window.AndroidBridge) {
+      btn.textContent = 'Notifications On';
+      btn.classList.add('active');
+      btn.disabled = true;
+      status.textContent = 'The Android app checks reminders every 15 minutes and notifies natively.';
+      if (testBtn) testBtn.style.display = 'none';
+      return;
+    }
     if (typeof Notification === 'undefined') {
       btn.textContent = 'Not Supported';
       btn.disabled = true;
