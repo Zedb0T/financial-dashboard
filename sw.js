@@ -1,4 +1,4 @@
-const CACHE_NAME = 'debt-free-v2';
+const CACHE_NAME = 'debt-free-v3';
 const ASSETS = [
   '/financial-dashboard/',
   '/financial-dashboard/index.html',
