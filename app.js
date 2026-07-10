@@ -1792,6 +1792,7 @@ function swNotify(title, opts) {
 
 function checkAndNotify() {
   if (!notifyPermissionGranted()) return;
+  if (getSnoozeRemaining() > 0) return;
   const today = todayISO();
 
   const active = (state.reminders || []).filter(r => !r.done && r.due);
@@ -1864,14 +1865,75 @@ async function subscribeToPush() {
 
 function syncRemindersToServer() {
   if (!PUSH_SERVER || !pushSub) return;
+  const snoozeUntil = Number(localStorage.getItem('fd:snoozeUntil')) || 0;
   fetch(PUSH_SERVER + '/sync', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       subscription: pushSub.toJSON(),
       reminders: (state.reminders || []).filter(r => !r.done && r.due),
+      snoozeUntil,
     }),
   }).catch(() => {});
+}
+
+function getSnoozeRemaining() {
+  const until = Number(localStorage.getItem('fd:snoozeUntil')) || 0;
+  return Math.max(0, until - Date.now());
+}
+
+function formatCountdown(ms) {
+  const totalSec = Math.ceil(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+function setSnooze(minutes) {
+  const until = Date.now() + minutes * 60 * 1000;
+  localStorage.setItem('fd:snoozeUntil', String(until));
+  syncRemindersToServer();
+  updateSnoozeUI();
+}
+
+function cancelSnooze() {
+  localStorage.removeItem('fd:snoozeUntil');
+  syncRemindersToServer();
+  updateSnoozeUI();
+}
+
+let snoozeInterval = null;
+function updateSnoozeUI() {
+  const snoozeDiv = document.getElementById('remind-snooze');
+  const activeDiv = document.getElementById('snooze-active');
+  const btnsDiv = document.getElementById('snooze-btns');
+  const countdown = document.getElementById('snooze-countdown');
+  if (!snoozeDiv) return;
+
+  const remaining = getSnoozeRemaining();
+  if (remaining > 0) {
+    activeDiv.style.display = '';
+    btnsDiv.style.display = 'none';
+    countdown.textContent = 'Snoozed — ' + formatCountdown(remaining);
+    if (!snoozeInterval) {
+      snoozeInterval = setInterval(() => {
+        const r = getSnoozeRemaining();
+        if (r <= 0) {
+          cancelSnooze();
+          toast('Notifications resumed');
+        } else {
+          countdown.textContent = 'Snoozed — ' + formatCountdown(r);
+        }
+      }, 1000);
+    }
+  } else {
+    activeDiv.style.display = 'none';
+    btnsDiv.style.display = '';
+    if (snoozeInterval) { clearInterval(snoozeInterval); snoozeInterval = null; }
+  }
 }
 
 function initNotifications() {
@@ -1923,6 +1985,7 @@ function initNotifications() {
       if (perm === 'granted') {
         checkAndNotify();
         await subscribeToPush();
+        if (snoozeDiv) { snoozeDiv.style.display = ''; updateSnoozeUI(); }
         toast(pushSub ? 'Push notifications enabled!' : 'Notifications enabled!');
       }
     });
@@ -1940,6 +2003,20 @@ function initNotifications() {
         toast('Notification failed: ' + err.message, 'error');
       });
     });
+  }
+
+  // Snooze buttons
+  document.querySelectorAll('[data-snooze]').forEach(btn => {
+    btn.addEventListener('click', () => setSnooze(Number(btn.dataset.snooze)));
+  });
+  const snoozeCancelBtn = document.getElementById('snooze-cancel');
+  if (snoozeCancelBtn) snoozeCancelBtn.addEventListener('click', cancelSnooze);
+
+  // Show snooze bar when notifications are on
+  const snoozeDiv = document.getElementById('remind-snooze');
+  if (snoozeDiv && notifyPermissionGranted()) {
+    snoozeDiv.style.display = '';
+    updateSnoozeUI();
   }
 
   // Check on load and every 2 minutes

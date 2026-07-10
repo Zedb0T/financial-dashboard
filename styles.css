@@ -749,6 +749,39 @@ button { font-family: inherit; }
   background: var(--accent);
   color: var(--bg);
 }
+.remind-snooze {
+  border-top: 1px solid var(--border);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.remind-snooze-label {
+  font-size: 13px;
+  color: var(--muted);
+  margin-right: 2px;
+}
+.remind-snooze-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.remind-snooze-active {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--warning, #f5c06a);
+}
+.remind-snooze-active #snooze-countdown {
+  font-variant-numeric: tabular-nums;
+}
+.btn-sm {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 4px;
+}
 
 /* SNAPSHOT */
 .snapshot-row {

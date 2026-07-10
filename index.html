@@ -389,6 +389,19 @@
             <button class="btn" id="remind-notify-test" style="display:none">Test</button>
           </div>
         </div>
+        <div class="remind-snooze" id="remind-snooze" style="display:none">
+          <div class="remind-snooze-active" id="snooze-active" style="display:none">
+            <span id="snooze-countdown"></span>
+            <button class="btn btn-sm" id="snooze-cancel">Resume</button>
+          </div>
+          <div class="remind-snooze-btns" id="snooze-btns">
+            <span class="remind-snooze-label">Snooze:</span>
+            <button class="btn btn-sm" data-snooze="15">15m</button>
+            <button class="btn btn-sm" data-snooze="30">30m</button>
+            <button class="btn btn-sm" data-snooze="60">1h</button>
+            <button class="btn btn-sm" data-snooze="120">2h</button>
+          </div>
+        </div>
       </div>
 
       <div id="remind-overdue" class="remind-group" style="display:none">

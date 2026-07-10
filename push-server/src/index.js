@@ -201,6 +201,7 @@ async function cronCheck(env) {
   for (const key of list.keys) {
     const data = JSON.parse(await env.SUBS.get(key.name));
     if (!data?.subscription?.endpoint) continue;
+    if (data.snoozeUntil && Date.now() < data.snoozeUntil) continue;
 
     const dueToday = (data.reminders || []).filter(r => !r.done && r.due === today);
     for (const r of dueToday) {
@@ -237,13 +238,14 @@ export default {
     }
 
     if (url.pathname === '/sync' && request.method === 'POST') {
-      const { subscription, reminders } = await request.json();
+      const { subscription, reminders, snoozeUntil } = await request.json();
       if (!subscription?.endpoint) return json({ error: 'no subscription' }, 400);
       const id = b64url(new TextEncoder().encode(subscription.endpoint)).slice(0, 64);
       const existing = await env.SUBS.get(id);
       if (!existing) return json({ error: 'not subscribed' }, 404);
       const data = JSON.parse(existing);
       data.reminders = reminders || [];
+      data.snoozeUntil = snoozeUntil || 0;
       await env.SUBS.put(id, JSON.stringify(data));
       return json({ ok: true });
     }
