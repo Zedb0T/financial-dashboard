@@ -348,8 +348,6 @@ function simulatePayoff(opts) {
       && activeAfterMins[0].apr === 0;
 
     if (holdTarget) {
-      // Strategy says focus a 0% debt — save the extra in bank instead
-      // and one-shot it when bank can cover balance + emergency fund
       const d = activeAfterMins[0];
       if (bank - d.balance >= threshold) {
         const pay = d.balance;
@@ -357,15 +355,21 @@ function simulatePayoff(opts) {
         bank -= pay;
         totalPaid += pay;
         perDebt[d.id].payment += pay;
+        extraBudget = Math.max(0, extraBudget - pay);
       }
-    } else {
-      for (const d of activeAfterMins) {
-        if (extraBudget <= 0.005) break;
-        if (d.balance <= 0.005) continue;
-        const pay = Math.min(extraBudget, d.balance);
+    }
+
+    {
+      const remaining = sortByStrategy(
+        sim.filter((d) => d.balance > 0.005)
+      );
+      let surplus = useRule ? Math.max(0, bank - threshold) : extraBudget;
+      for (const d of remaining) {
+        if (surplus <= 0.005) break;
+        const pay = Math.min(surplus, d.balance);
         d.balance -= pay;
         bank -= pay;
-        extraBudget -= pay;
+        surplus -= pay;
         totalPaid += pay;
         perDebt[d.id].payment += pay;
       }
