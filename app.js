@@ -1510,10 +1510,17 @@ function renderSchedule(sim) {
 
   // Mobile cards
   const cardsEl = document.getElementById('schedule-cards');
+  const useRule = !!state.settings.useEmergencyRule;
+  const efThreshold = Number(state.settings.emergencyFund) || 0;
+  let efReached = false;
   if (cardsEl) {
     cardsEl.innerHTML = shown.map(row => {
       const paidOff = row.totalRemaining < 0.005;
       const dateLabel = dateInMonths(row.month);
+      if (useRule && !efReached && row.bank >= efThreshold) efReached = true;
+      const cardTitle = useRule && !efReached
+        ? `${row.month} - ${dateLabel} · ${fmt0(row.bank)}`
+        : `${row.month} - ${dateLabel}`;
       const minExp = monthlyExpenses + (row.minimumsPaid || 0);
       const extraCash = monthlyIncome - minExp;
       const debtRows = debts.map((d, i) => {
@@ -1531,7 +1538,7 @@ function renderSchedule(sim) {
       }).join('');
       return `<div class="sc-card${paidOff ? ' sc-done' : ''}">
         <div class="sc-head">
-          <span class="sc-num">${row.month} - ${dateLabel}</span>
+          <span class="sc-num">${cardTitle}</span>
         </div>
         <div class="sc-flow">
           <div class="sc-flow-item"><span>Bank</span><span class="sc-bank">${fmt0(row.bank)}</span></div>
