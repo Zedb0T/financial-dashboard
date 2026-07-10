@@ -347,6 +347,7 @@ function simulatePayoff(opts) {
     const holdTarget = holdZeroPct && activeAfterMins.length > 0
       && activeAfterMins[0].apr === 0;
 
+    let holdId = null;
     if (holdTarget) {
       const d = activeAfterMins[0];
       if (bank - d.balance >= threshold) {
@@ -355,7 +356,8 @@ function simulatePayoff(opts) {
         bank -= pay;
         totalPaid += pay;
         perDebt[d.id].payment += pay;
-        extraBudget = Math.max(0, extraBudget - pay);
+      } else {
+        holdId = d.id;
       }
     }
 
@@ -366,6 +368,7 @@ function simulatePayoff(opts) {
       let surplus = useRule ? Math.max(0, bank - threshold) : extraBudget;
       for (const d of remaining) {
         if (surplus <= 0.005) break;
+        if (d.id === holdId) continue;
         const pay = Math.min(surplus, d.balance);
         d.balance -= pay;
         bank -= pay;

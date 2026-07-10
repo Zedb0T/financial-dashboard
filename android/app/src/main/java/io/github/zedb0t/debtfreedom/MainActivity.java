@@ -87,11 +87,12 @@ public class MainActivity extends Activity {
                 String tag = release.optString("tag_name", "");
                 String latestVersion = tag.startsWith("v") ? tag.substring(1) : tag;
 
-                String currentVersion = "";
+                String cv = "";
                 try {
                     PackageInfo pi = getPackageManager().getPackageInfo(getPackageName(), 0);
-                    currentVersion = pi.versionName;
+                    cv = pi.versionName;
                 } catch (Exception ignored) {}
+                final String currentVersion = cv;
 
                 if (currentVersion.isEmpty() || latestVersion.isEmpty()) return;
                 if (compareVersions(latestVersion, currentVersion) <= 0) return;
