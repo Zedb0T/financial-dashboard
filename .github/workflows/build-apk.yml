@@ -83,15 +83,16 @@ jobs:
           name: debt-freedom-apk
           path: debt-freedom-${{ steps.version.outputs.tag }}.apk
 
-      - name: Create tag and release
+      - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ steps.version.outputs.tag }}"
-          if ! git rev-parse "$TAG" >/dev/null 2>&1; then
-            git tag "$TAG"
-            git push origin "$TAG"
+          # gh creates the tag via the API; git-pushing tags is rejected when
+          # the tagged commit's workflow files differ from the default branch
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" "debt-freedom-${TAG}.apk" \
+              --target "$GITHUB_SHA" \
+              --title "Debt Freedom $TAG" \
+              --generate-notes
           fi
-          gh release create "$TAG" "debt-freedom-${TAG}.apk" \
-            --title "Debt Freedom $TAG" \
-            --generate-notes
