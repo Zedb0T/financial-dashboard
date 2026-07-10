@@ -1,0 +1,15 @@
+name = "debt-free-push"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+[triggers]
+crons = ["*/2 * * * *"]
+
+[[kv_namespaces]]
+binding = "SUBS"
+id = "e54c2fb19fda417cab3fd78c7d6e1544"
+
+[vars]
+VAPID_SUBJECT = "mailto:user@example.com"
+VAPID_PUBLIC = "BAE2OEYbupNmY3SdmdA8QKx3XFNDlAT8SOlOcvMejHDRI9HlL8yXosVRI8t8NepIEtMR7c4peGjTgU2heGot474"
+# VAPID_PRIVATE is stored as a secret — run: npx wrangler secret put VAPID_PRIVATE

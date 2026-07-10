@@ -3,6 +3,8 @@
 // ============================================================================
 
 const STORAGE_KEY = 'fd:v1';
+const PUSH_SERVER = 'https://debt-free-push.zedbotjak.workers.dev';
+const VAPID_PUBLIC = 'BAE2OEYbupNmY3SdmdA8QKx3XFNDlAT8SOlOcvMejHDRI9HlL8yXosVRI8t8NepIEtMR7c4peGjTgU2heGot474';
 const PALETTE = [
   '#6ee7a8', '#6ba9f0', '#f5c06a', '#ef6868',
   '#c78bf0', '#7ae0d5', '#f09a6b', '#8ae66e',
@@ -1698,7 +1700,7 @@ function initReminders() {
       done: false,
       created: todayISO(),
     });
-    save(); renderReminders();
+    save(); renderReminders(); syncRemindersToServer();
     form.reset();
     toast('Reminder added');
   });
@@ -1718,7 +1720,7 @@ function initReminders() {
         done: false,
         created: todayISO(),
       });
-      save(); renderReminders();
+      save(); renderReminders(); syncRemindersToServer();
       toast(`Added: ${preset.title}`);
     });
   });
@@ -1737,7 +1739,7 @@ function initReminders() {
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {
       state.reminders = state.reminders.filter(r => !r.done);
-      save(); renderReminders();
+      save(); renderReminders(); syncRemindersToServer();
       toast('Cleared completed');
     });
   }
@@ -1759,14 +1761,14 @@ function initReminders() {
             created: todayISO(),
           });
         }
-        save(); renderReminders();
+        save(); renderReminders(); syncRemindersToServer();
         if (r.done) toast('Done! Nice work.');
       }
     }
     const delId = e.target.dataset?.remindDel;
     if (delId) {
       state.reminders = state.reminders.filter(x => x.id !== delId);
-      save(); renderReminders();
+      save(); renderReminders(); syncRemindersToServer();
     }
   });
 }
@@ -1826,6 +1828,52 @@ function checkAndNotify() {
   });
 }
 
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+let pushSub = null;
+
+async function subscribeToPush() {
+  if (!PUSH_SERVER || !VAPID_PUBLIC) return null;
+  const reg = await getSwReg();
+  if (!reg) return null;
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub) {
+    sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC),
+    });
+  }
+  pushSub = sub;
+  await fetch(PUSH_SERVER + '/subscribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      subscription: sub.toJSON(),
+      reminders: (state.reminders || []).filter(r => !r.done && r.due),
+    }),
+  }).catch(() => {});
+  return sub;
+}
+
+function syncRemindersToServer() {
+  if (!PUSH_SERVER || !pushSub) return;
+  fetch(PUSH_SERVER + '/sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      subscription: pushSub.toJSON(),
+      reminders: (state.reminders || []).filter(r => !r.done && r.due),
+    }),
+  }).catch(() => {});
+}
+
 function initNotifications() {
   const btn = document.getElementById('remind-notify-btn');
   const testBtn = document.getElementById('remind-notify-test');
@@ -1870,11 +1918,12 @@ function initNotifications() {
       });
       return;
     }
-    Notification.requestPermission().then(perm => {
+    Notification.requestPermission().then(async perm => {
       updateUI();
       if (perm === 'granted') {
         checkAndNotify();
-        toast('Notifications enabled!');
+        await subscribeToPush();
+        toast(pushSub ? 'Push notifications enabled!' : 'Notifications enabled!');
       }
     });
   });
@@ -1896,6 +1945,9 @@ function initNotifications() {
   // Check on load and every 2 minutes
   checkAndNotify();
   setInterval(checkAndNotify, 2 * 60 * 1000);
+
+  // Re-register push subscription if already granted
+  if (notifyPermissionGranted()) subscribeToPush();
 }
 
 // ---- Progress ------------------------------------------------------------

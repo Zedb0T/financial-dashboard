@@ -26,6 +26,19 @@ self.addEventListener('activate', e => {
   );
 });
 
+self.addEventListener('push', e => {
+  let data = { title: 'Reminder', body: 'You have a task due!' };
+  try { if (e.data) data = e.data.json(); } catch (_) {}
+  e.waitUntil(
+    self.registration.showNotification(data.title || 'Reminder', {
+      body: data.body || '',
+      tag: data.tag || 'push-' + Date.now(),
+      renotify: true,
+      icon: '/financial-dashboard/icon-192.png',
+    })
+  );
+});
+
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   e.waitUntil(
