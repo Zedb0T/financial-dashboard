@@ -75,13 +75,13 @@ jobs:
 
       - name: Rename APK
         run: |
-          cp android/app/build/outputs/apk/release/app-release.apk debt-freedom.apk
+          cp android/app/build/outputs/apk/release/app-release.apk "debt-freedom-${{ steps.version.outputs.tag }}.apk"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: debt-freedom-apk
-          path: debt-freedom.apk
+          path: debt-freedom-${{ steps.version.outputs.tag }}.apk
 
       - name: Create tag and release
         env:
@@ -92,6 +92,6 @@ jobs:
             git tag "$TAG"
             git push origin "$TAG"
           fi
-          gh release create "$TAG" debt-freedom.apk \
+          gh release create "$TAG" "debt-freedom-${TAG}.apk" \
             --title "Debt Freedom $TAG" \
             --generate-notes
