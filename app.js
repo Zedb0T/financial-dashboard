@@ -344,20 +344,16 @@ function simulatePayoff(opts) {
       sim.filter((d) => d.balance > 0.005)
     );
     const targetId = activeAfterMins.length > 0 ? activeAfterMins[0].id : null;
-    const holdTarget = holdZeroPct && activeAfterMins.length > 0
-      && activeAfterMins[0].apr === 0;
 
-    let holdId = null;
-    if (holdTarget) {
-      const d = activeAfterMins[0];
-      if (bank - d.balance >= threshold) {
-        const pay = d.balance;
-        d.balance = 0;
-        bank -= pay;
-        totalPaid += pay;
-        perDebt[d.id].payment += pay;
-      } else {
-        holdId = d.id;
+    if (holdZeroPct) {
+      for (const d of sortByStrategy(sim.filter((x) => x.balance > 0.005 && x.apr === 0))) {
+        if (bank - d.balance >= threshold) {
+          const pay = d.balance;
+          d.balance = 0;
+          bank -= pay;
+          totalPaid += pay;
+          perDebt[d.id].payment += pay;
+        }
       }
     }
 
@@ -368,7 +364,7 @@ function simulatePayoff(opts) {
       let surplus = useRule ? Math.max(0, bank - threshold) : extraBudget;
       for (const d of remaining) {
         if (surplus <= 0.005) break;
-        if (d.id === holdId) continue;
+        if (holdZeroPct && d.apr === 0) continue;
         const pay = Math.min(surplus, d.balance);
         d.balance -= pay;
         bank -= pay;
