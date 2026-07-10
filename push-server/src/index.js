@@ -22,16 +22,20 @@ function b64url(buf) {
 }
 
 function b64urlDecode(str) {
-  str = str.replace(/-/g, '+').replace(/_/g, '/');
-  while (str.length % 4) str += '=';
-  const bin = atob(str);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return bytes;
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  str = str.replace(/-/g, '+').replace(/_/g, '/').replace(/=+$/, '');
+  const out = [];
+  let bits = 0, value = 0;
+  for (const c of str) {
+    value = (value << 6) | chars.indexOf(c);
+    bits += 6;
+    if (bits >= 8) { bits -= 8; out.push((value >> bits) & 0xff); }
+  }
+  return new Uint8Array(out);
 }
 
 // --- VAPID JWT ---
-async function createVapidJwt(endpoint, vapidSubject, vapidPrivateB64) {
+async function createVapidJwt(endpoint, vapidSubject, vapidPrivateB64, vapidPublicB64) {
   const aud = new URL(endpoint).origin;
   const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 12;
 
@@ -39,10 +43,17 @@ async function createVapidJwt(endpoint, vapidSubject, vapidPrivateB64) {
   const payload = b64url(new TextEncoder().encode(JSON.stringify({ aud, exp, sub: vapidSubject })));
   const unsigned = `${header}.${payload}`;
 
-  const privBytes = b64urlDecode(vapidPrivateB64);
-  const pkcs8 = buildPkcs8(privBytes);
+  const pubRaw = b64urlDecode(vapidPublicB64);
+  const x = b64url(pubRaw.slice(1, 33));
+  const y = b64url(pubRaw.slice(33, 65));
+  const d = vapidPrivateB64.trim();
+
   const key = await crypto.subtle.importKey(
-    'pkcs8', pkcs8, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']
+    'jwk',
+    { kty: 'EC', crv: 'P-256', x, y, d, ext: true },
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    false,
+    ['sign']
   );
 
   const sig = await crypto.subtle.sign(
@@ -53,20 +64,6 @@ async function createVapidJwt(endpoint, vapidSubject, vapidPrivateB64) {
 
   const rawSig = derToRaw(new Uint8Array(sig));
   return `${unsigned}.${b64url(rawSig)}`;
-}
-
-function buildPkcs8(privBytes) {
-  const header = new Uint8Array([
-    0x30, 0x41, 0x02, 0x01, 0x00, 0x30, 0x13,
-    0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02,
-    0x01, 0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d,
-    0x03, 0x01, 0x07, 0x04, 0x27, 0x30, 0x25, 0x02,
-    0x01, 0x01, 0x04, 0x20
-  ]);
-  const result = new Uint8Array(header.length + privBytes.length);
-  result.set(header);
-  result.set(privBytes, header.length);
-  return result.buffer;
 }
 
 function derToRaw(der) {
@@ -179,7 +176,7 @@ function concatBytes(...arrays) {
 // --- Send Push ---
 async function sendPush(env, subscription, payload) {
   const body = await encryptPayload(subscription, JSON.stringify(payload));
-  const jwt = await createVapidJwt(subscription.endpoint, env.VAPID_SUBJECT, env.VAPID_PRIVATE);
+  const jwt = await createVapidJwt(subscription.endpoint, env.VAPID_SUBJECT, env.VAPID_PRIVATE, env.VAPID_PUBLIC);
 
   const resp = await fetch(subscription.endpoint, {
     method: 'POST',
