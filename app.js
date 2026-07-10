@@ -1993,7 +1993,8 @@ function initNotifications() {
       btn.classList.add('active');
       btn.disabled = true;
       status.textContent = 'The Android app checks reminders every 15 minutes and notifies natively.';
-      if (testBtn) testBtn.style.display = 'none';
+      // testNotification only exists in newer APK builds
+      if (testBtn) testBtn.style.display = window.AndroidBridge.testNotification ? '' : 'none';
       return;
     }
     if (typeof Notification === 'undefined') {
@@ -2046,6 +2047,12 @@ function initNotifications() {
 
   if (testBtn) {
     testBtn.addEventListener('click', () => {
+      if (window.AndroidBridge && window.AndroidBridge.testNotification) {
+        const ok = window.AndroidBridge.testNotification();
+        if (ok) toast('Test notification sent');
+        else toast('Notifications are disabled for the app — enable them in Android settings.', 'error');
+        return;
+      }
       swNotify('Test Notification', {
         body: 'If you see this, push notifications are working!',
         icon: 'icon-192.png',

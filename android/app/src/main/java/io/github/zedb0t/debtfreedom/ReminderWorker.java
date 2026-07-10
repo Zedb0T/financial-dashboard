@@ -72,7 +72,7 @@ public class ReminderWorker extends Worker {
         return Result.success();
     }
 
-    private static Notification buildNotification(Context ctx, String title, String body) {
+    static Notification buildNotification(Context ctx, String title, String body) {
         Intent open = new Intent(ctx, MainActivity.class);
         open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         int piFlags = Build.VERSION.SDK_INT >= 23
