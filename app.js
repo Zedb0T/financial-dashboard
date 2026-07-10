@@ -1987,6 +1987,10 @@ function initNotifications() {
   const status = document.getElementById('remind-notify-status');
   if (!btn || !status) return;
 
+  // No point offering the APK download inside the APK itself
+  const apkRow = document.getElementById('apk-download-row');
+  if (apkRow && window.AndroidBridge) apkRow.style.display = 'none';
+
   function updateUI() {
     if (window.AndroidBridge) {
       btn.textContent = 'Notifications On';
