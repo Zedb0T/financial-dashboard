@@ -25,6 +25,7 @@ jobs:
       - name: Generate icons from repo assets
         run: |
           sudo apt-get install -y imagemagick
+          mkdir -p android/app/src/main/res/mipmap-{hdpi,xhdpi,xxhdpi,xxxhdpi}
           convert icon-512.png -resize 72x72   android/app/src/main/res/mipmap-hdpi/ic_launcher.png
           convert icon-512.png -resize 96x96   android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
           convert icon-512.png -resize 144x144 android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
