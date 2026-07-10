@@ -1,0 +1,41 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'io.github.zedb0t.debtfreedom'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'io.github.zedb0t.debtfreedom'
+        minSdk 19
+        targetSdk 34
+        versionCode 1
+        versionName '1.0.0'
+    }
+
+    signingConfigs {
+        release {
+            storeFile file(System.getenv("KEYSTORE_PATH") ?: "debug.keystore")
+            storePassword System.getenv("KEYSTORE_PASS") ?: "android"
+            keyAlias System.getenv("KEY_ALIAS") ?: "androiddebugkey"
+            keyPassword System.getenv("KEY_PASS") ?: "android"
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+dependencies {
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+}

@@ -1,0 +1,74 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Generate icons from repo assets
+        run: |
+          sudo apt-get install -y imagemagick
+          convert icon-512.png -resize 72x72   android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+          convert icon-512.png -resize 96x96   android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+          convert icon-512.png -resize 144x144 android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+          convert icon-512.png -resize 192x192 android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+
+      - name: Generate signing key
+        working-directory: android
+        run: |
+          keytool -genkeypair -v \
+            -keystore release.keystore \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -alias release \
+            -storepass debtfree -keypass debtfree \
+            -dname "CN=Debt Freedom, O=ZedB0T"
+
+      - name: Setup Gradle wrapper
+        working-directory: android
+        run: |
+          gradle wrapper --gradle-version 8.5
+
+      - name: Build release APK
+        working-directory: android
+        env:
+          KEYSTORE_PATH: release.keystore
+          KEYSTORE_PASS: debtfree
+          KEY_ALIAS: release
+          KEY_PASS: debtfree
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease
+
+      - name: Rename APK
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk debt-freedom.apk
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: debt-freedom-apk
+          path: debt-freedom.apk
+
+      - name: Create release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: debt-freedom.apk
+          generate_release_notes: true

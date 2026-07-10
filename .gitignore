@@ -1,2 +1,8 @@
 node_modules/
 push-server/node_modules/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/*.keystore
+android/app/src/main/res/mipmap-*/ic_launcher.png
