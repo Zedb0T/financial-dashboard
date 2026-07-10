@@ -3,8 +3,10 @@ package io.github.zedb0t.debtfreedom;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
+import android.content.pm.PackageInstaller;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
@@ -28,7 +30,9 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
@@ -141,14 +145,87 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> new AlertDialog.Builder(this)
                     .setTitle("Update Available")
                     .setMessage("Version " + version + " is available. You have " + currentVersion + ".")
-                    .setPositiveButton("Download", (d, w) -> {
-                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl));
-                        startActivity(intent);
-                    })
+                    .setPositiveButton("Update", (d, w) -> downloadAndInstall(downloadUrl))
                     .setNegativeButton("Later", null)
                     .show());
 
             } catch (Exception ignored) {}
+        }).start();
+    }
+
+    /** Streams the APK straight into a PackageInstaller session — no file ever
+     *  hits Downloads. Android shows its own install confirmation; the first
+     *  time, it also asks the user to allow this app to install updates. */
+    private void downloadAndInstall(String apkUrl) {
+        if (Build.VERSION.SDK_INT < 21 || !apkUrl.endsWith(".apk")) {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl)));
+            return;
+        }
+
+        AlertDialog progress = new AlertDialog.Builder(this)
+            .setTitle("Updating")
+            .setMessage("Downloading…")
+            .setCancelable(false)
+            .create();
+        progress.show();
+
+        new Thread(() -> {
+            PackageInstaller.Session session = null;
+            try {
+                HttpURLConnection conn = (HttpURLConnection) new URL(apkUrl).openConnection();
+                conn.setInstanceFollowRedirects(true);
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(30000);
+                if (conn.getResponseCode() != 200) throw new Exception("HTTP " + conn.getResponseCode());
+                long total = conn.getContentLength();
+
+                PackageInstaller installer = getPackageManager().getPackageInstaller();
+                int sessionId = installer.createSession(
+                    new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL));
+                session = installer.openSession(sessionId);
+
+                InputStream in = conn.getInputStream();
+                OutputStream out = session.openWrite("update.apk", 0, total > 0 ? total : -1);
+                byte[] buf = new byte[65536];
+                long done = 0;
+                int n;
+                while ((n = in.read(buf)) > 0) {
+                    out.write(buf, 0, n);
+                    done += n;
+                    if (total > 0) {
+                        final int pct = (int) (done * 100 / total);
+                        runOnUiThread(() -> progress.setMessage("Downloading… " + pct + "%"));
+                    }
+                }
+                session.fsync(out);
+                out.close();
+                in.close();
+
+                runOnUiThread(() -> progress.setMessage("Installing…"));
+
+                int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+                if (Build.VERSION.SDK_INT >= 31) flags |= PendingIntent.FLAG_MUTABLE;
+                PendingIntent pi = PendingIntent.getBroadcast(
+                    this, 0, new Intent(this, InstallReceiver.class), flags);
+                session.commit(pi.getIntentSender());
+                session.close();
+
+                runOnUiThread(progress::dismiss);
+            } catch (Exception e) {
+                if (session != null) {
+                    try { session.abandon(); } catch (Exception ignored) {}
+                }
+                runOnUiThread(() -> {
+                    progress.dismiss();
+                    new AlertDialog.Builder(this)
+                        .setTitle("Update Failed")
+                        .setMessage("Couldn't update in-app. Download in browser instead?")
+                        .setPositiveButton("Open Browser", (d, w) ->
+                            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl))))
+                        .setNegativeButton("Cancel", null)
+                        .show();
+                });
+            }
         }).start();
     }
 
