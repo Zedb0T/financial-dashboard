@@ -155,7 +155,10 @@ function humanMonths(m) {
 }
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+}
+function easternHour() {
+  return Number(new Date().toLocaleString('en-US', { timeZone: 'America/New_York', hour: 'numeric', hour12: false }));
 }
 
 // Months from today until bank balance reaches `target`, treating the
@@ -1793,6 +1796,8 @@ function swNotify(title, opts) {
 function checkAndNotify() {
   if (!notifyPermissionGranted()) return;
   if (getSnoozeRemaining() > 0) return;
+  const h = easternHour();
+  if (h < 8 || h >= 21) return;
   const today = todayISO();
 
   const active = (state.reminders || []).filter(r => !r.done && r.due);
@@ -2027,7 +2032,7 @@ function initNotifications() {
 
   // Check on load and every 2 minutes
   checkAndNotify();
-  setInterval(checkAndNotify, 2 * 60 * 1000);
+  setInterval(checkAndNotify, 15 * 60 * 1000);
 
   // Re-register push subscription if already granted
   if (notifyPermissionGranted()) subscribeToPush();

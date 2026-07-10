@@ -194,8 +194,12 @@ async function sendPush(env, subscription, payload) {
 
 // --- Cron: check all subs and send pushes ---
 async function cronCheck(env) {
+  const now = new Date();
+  const eastern = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  const hour = eastern.getHours();
+  if (hour < 8 || hour >= 21) return 0;
+  const today = eastern.toISOString().slice(0, 10);
   const list = await env.SUBS.list();
-  const today = new Date().toISOString().slice(0, 10);
   let sent = 0;
 
   for (const key of list.keys) {
