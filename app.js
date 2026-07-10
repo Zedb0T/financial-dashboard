@@ -345,19 +345,34 @@ function simulatePayoff(opts) {
     );
     const targetId = activeAfterMins.length > 0 ? activeAfterMins[0].id : null;
 
-    if (holdZeroPct) {
-      for (const d of sortByStrategy(sim.filter((x) => x.balance > 0.005 && x.apr === 0))) {
-        if (bank - d.balance >= threshold) {
-          const pay = d.balance;
-          d.balance = 0;
-          bank -= pay;
-          totalPaid += pay;
-          perDebt[d.id].payment += pay;
+    const topIsZero = holdZeroPct && activeAfterMins.length > 0
+      && activeAfterMins[0].apr === 0;
+
+    if (topIsZero) {
+      const target = activeAfterMins[0];
+      if (bank - target.balance >= threshold) {
+        const pay = target.balance;
+        target.balance = 0;
+        bank -= pay;
+        totalPaid += pay;
+        perDebt[target.id].payment += pay;
+        const remaining = sortByStrategy(
+          sim.filter((d) => d.balance > 0.005)
+        );
+        let surplus = useRule ? Math.max(0, bank - threshold) : Math.max(0, extraBudget - pay);
+        for (const d of remaining) {
+          if (surplus <= 0.005) break;
+          if (d.apr === 0) continue;
+          const p = Math.min(surplus, d.balance);
+          d.balance -= p;
+          bank -= p;
+          surplus -= p;
+          totalPaid += p;
+          perDebt[d.id].payment += p;
         }
       }
-    }
-
-    {
+      // else: hold — don't pay extra to anything, let bank grow
+    } else {
       const remaining = sortByStrategy(
         sim.filter((d) => d.balance > 0.005)
       );
