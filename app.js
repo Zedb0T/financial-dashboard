@@ -2005,10 +2005,16 @@ function initNotifications() {
     });
   }
 
-  // Snooze buttons
-  document.querySelectorAll('[data-snooze]').forEach(btn => {
-    btn.addEventListener('click', () => setSnooze(Number(btn.dataset.snooze)));
-  });
+  // Snooze
+  const snoozeGoBtn = document.getElementById('snooze-go');
+  const snoozeInput = document.getElementById('snooze-minutes');
+  if (snoozeGoBtn && snoozeInput) {
+    snoozeGoBtn.addEventListener('click', () => {
+      const mins = Math.max(1, Math.min(1440, Number(snoozeInput.value) || 30));
+      setSnooze(mins);
+      toast('Snoozed for ' + mins + ' min');
+    });
+  }
   const snoozeCancelBtn = document.getElementById('snooze-cancel');
   if (snoozeCancelBtn) snoozeCancelBtn.addEventListener('click', cancelSnooze);
 

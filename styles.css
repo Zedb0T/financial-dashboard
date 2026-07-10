@@ -765,7 +765,17 @@ button { font-family: inherit; }
 .remind-snooze-btns {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+}
+.snooze-input {
+  width: 60px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  font-size: 13px;
+  text-align: center;
 }
 .remind-snooze-active {
   display: flex;

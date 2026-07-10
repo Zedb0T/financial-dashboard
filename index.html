@@ -396,10 +396,9 @@
           </div>
           <div class="remind-snooze-btns" id="snooze-btns">
             <span class="remind-snooze-label">Snooze:</span>
-            <button class="btn btn-sm" data-snooze="15">15m</button>
-            <button class="btn btn-sm" data-snooze="30">30m</button>
-            <button class="btn btn-sm" data-snooze="60">1h</button>
-            <button class="btn btn-sm" data-snooze="120">2h</button>
+            <input type="number" id="snooze-minutes" class="snooze-input" min="1" max="1440" value="30" placeholder="min">
+            <span class="remind-snooze-label">min</span>
+            <button class="btn btn-sm primary" id="snooze-go">Snooze</button>
           </div>
         </div>
       </div>
