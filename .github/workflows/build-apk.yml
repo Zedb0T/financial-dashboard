@@ -13,6 +13,26 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            LATEST=$(git tag -l 'v*' --sort=-v:refname | head -1)
+            if [ -z "$LATEST" ]; then
+              TAG="v1.0.0"
+            else
+              IFS='.' read -r major minor patch <<< "${LATEST#v}"
+              TAG="v${major}.${minor}.$((patch + 1))"
+            fi
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "name=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "code=$(date +%s)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-java@v4
         with:
@@ -53,6 +73,8 @@ jobs:
           KEYSTORE_PASS: debtfree
           KEY_ALIAS: release
           KEY_PASS: debtfree
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease
@@ -67,9 +89,15 @@ jobs:
           name: debt-freedom-apk
           path: debt-freedom.apk
 
-      - name: Create release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: debt-freedom.apk
-          generate_release_notes: true
+      - name: Create tag and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          if ! git rev-parse "$TAG" >/dev/null 2>&1; then
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
+          gh release create "$TAG" debt-freedom.apk \
+            --title "Debt Freedom $TAG" \
+            --generate-notes
