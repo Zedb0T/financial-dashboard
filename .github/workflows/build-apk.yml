@@ -51,15 +51,9 @@ jobs:
           convert icon-512.png -resize 144x144 android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
           convert icon-512.png -resize 192x192 android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
 
-      - name: Generate signing key
+      - name: Decode persistent signing key
         working-directory: android
-        run: |
-          keytool -genkeypair -v \
-            -keystore release.keystore \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -alias release \
-            -storepass debtfree -keypass debtfree \
-            -dname "CN=Debt Freedom, O=ZedB0T"
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
 
       - name: Setup Gradle wrapper
         working-directory: android
