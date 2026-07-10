@@ -202,6 +202,8 @@ async function cronCheck(env) {
   const list = await env.SUBS.list();
   let sent = 0;
 
+  // Intentionally re-sends for every due reminder each cron tick (every 15 min).
+  // This is not an oversight — persistent nagging until the user marks them done.
   for (const key of list.keys) {
     const data = JSON.parse(await env.SUBS.get(key.name));
     if (!data?.subscription?.endpoint) continue;
