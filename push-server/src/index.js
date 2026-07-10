@@ -276,6 +276,11 @@ export default {
     }
 
     if (url.pathname === '/check') {
+      // Manual trigger for debugging only — requires the CHECK_KEY secret,
+      // otherwise anyone could spam re-notifications (the URL is public in the repo)
+      if (!env.CHECK_KEY || url.searchParams.get('key') !== env.CHECK_KEY) {
+        return json({ error: 'not found' }, 404);
+      }
       const sent = await cronCheck(env);
       return json({ ok: true, sent });
     }

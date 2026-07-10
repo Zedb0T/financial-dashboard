@@ -1,4 +1,4 @@
-const CACHE_NAME = 'debt-free-v10';
+const CACHE_NAME = 'debt-free-v11';
 const ASSETS = [
   '/financial-dashboard/',
   '/financial-dashboard/index.html',
@@ -7,7 +7,9 @@ const ASSETS = [
   '/financial-dashboard/manifest.json',
   '/financial-dashboard/icon-192.png',
   '/financial-dashboard/icon-512.png',
-  'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js'
+  // CORS mode (not opaque) so the cached copy can satisfy the SRI-tagged
+  // script element when offline
+  new Request('https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js', { mode: 'cors' })
 ];
 
 self.addEventListener('install', e => {

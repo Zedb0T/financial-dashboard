@@ -7,5 +7,7 @@ android/local.properties
 android/*.keystore
 release-persistent.keystore
 release-persistent.b64
+release-persistent.keystore.password.txt
+push-server/check-key.txt
 .wrangler/
 android/app/src/main/res/mipmap-*/ic_launcher.png

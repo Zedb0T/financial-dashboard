@@ -64,9 +64,9 @@ jobs:
         working-directory: android
         env:
           KEYSTORE_PATH: release.keystore
-          KEYSTORE_PASS: debtfree
+          KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
           KEY_ALIAS: release
-          KEY_PASS: debtfree
+          KEY_PASS: ${{ secrets.KEYSTORE_PASS }}
           VERSION_CODE: ${{ steps.version.outputs.code }}
           VERSION_NAME: ${{ steps.version.outputs.name }}
         run: |
