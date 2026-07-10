@@ -1791,13 +1791,13 @@ function swNotify(title, opts) {
 function checkAndNotify() {
   if (!notifyPermissionGranted()) return;
   const today = todayISO();
-  const notifiedKey = 'fd:notified:' + today;
-  const alreadyNotified = JSON.parse(localStorage.getItem(notifiedKey) || '[]');
 
   const active = (state.reminders || []).filter(r => !r.done && r.due);
-  const overdue = active.filter(r => r.due < today && !alreadyNotified.includes(r.id));
-  const dueToday = active.filter(r => r.due === today && !alreadyNotified.includes(r.id));
 
+  // Overdue: notify once per day per item
+  const notifiedKey = 'fd:notified:' + today;
+  const alreadyNotified = JSON.parse(localStorage.getItem(notifiedKey) || '[]');
+  const overdue = active.filter(r => r.due < today && !alreadyNotified.includes(r.id));
   const newlyNotified = [];
 
   overdue.forEach(r => {
@@ -1810,18 +1810,20 @@ function checkAndNotify() {
     newlyNotified.push(r.id);
   });
 
+  if (newlyNotified.length) {
+    localStorage.setItem(notifiedKey, JSON.stringify([...alreadyNotified, ...newlyNotified]));
+  }
+
+  // Due today: always nag every cycle until completed
+  const dueToday = active.filter(r => r.due === today);
   dueToday.forEach(r => {
     swNotify('Due Today', {
       body: r.title,
       icon: 'icon-192.png',
-      tag: r.id,
+      tag: 'today-' + r.id,
+      renotify: true,
     });
-    newlyNotified.push(r.id);
   });
-
-  if (newlyNotified.length) {
-    localStorage.setItem(notifiedKey, JSON.stringify([...alreadyNotified, ...newlyNotified]));
-  }
 }
 
 function initNotifications() {
@@ -1891,9 +1893,9 @@ function initNotifications() {
     });
   }
 
-  // Check on load and every 30 minutes
+  // Check on load and every 2 minutes
   checkAndNotify();
-  setInterval(checkAndNotify, 30 * 60 * 1000);
+  setInterval(checkAndNotify, 2 * 60 * 1000);
 }
 
 // ---- Progress ------------------------------------------------------------
