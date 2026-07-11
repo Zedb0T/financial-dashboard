@@ -1,4 +1,4 @@
-const CACHE_NAME = 'debt-free-v12';
+const CACHE_NAME = 'debt-free-v13';
 const ASSETS = [
   '/financial-dashboard/',
   '/financial-dashboard/index.html',
@@ -31,6 +31,11 @@ self.addEventListener('activate', e => {
 self.addEventListener('push', e => {
   let data = { title: 'Reminder', body: 'You have a task due!' };
   try { if (e.data) data = e.data.json(); } catch (_) {}
+  // Keep the icon badge (days until debt free) fresh even when the app
+  // is closed — every push carries the current count.
+  if (typeof data.badge === 'number' && 'setAppBadge' in navigator) {
+    navigator.setAppBadge(data.badge).catch(() => {});
+  }
   e.waitUntil(
     self.registration.showNotification(data.title || 'Reminder', {
       body: data.body || '',

@@ -1507,6 +1507,21 @@ function renderPlan() {
     document.getElementById('plan-monthly').textContent = fmt0(monthlyAlloc);
   }
 
+  // App icon badge = days until debt free (iOS 16.4+ home-screen web apps
+  // and installed Chrome PWAs). Also synced to the push server so arriving
+  // pushes keep the badge fresh when the app is closed.
+  let freeDateISO = '';
+  if (state.debts.length && !sim.stuck && sim.months > 0) {
+    const d = new Date();
+    d.setMonth(d.getMonth() + sim.months);
+    freeDateISO = d.toISOString().slice(0, 10);
+  }
+  if (localStorage.getItem('fd:freeDate') !== freeDateISO) {
+    localStorage.setItem('fd:freeDate', freeDateISO);
+    syncRemindersToServer();
+  }
+  updateAppBadge(freeDateISO);
+
   // Bank milestone (N months of expenses saved, N from the dropdown)
   const netCashflow = a.totalIncome - a.totalExpenses;
   const mSel = document.getElementById('milestone-months');
@@ -1923,6 +1938,18 @@ function toggleReminderDone(id) {
 }
 
 // ---- Notifications -------------------------------------------------------
+// Icon badge: days until debt free. No-op where the Badging API is missing
+// (Android WebView, Firefox, non-installed tabs).
+function updateAppBadge(freeDateISO) {
+  if (!('setAppBadge' in navigator)) return;
+  if (!freeDateISO) {
+    if ('clearAppBadge' in navigator) navigator.clearAppBadge().catch(() => {});
+    return;
+  }
+  const days = Math.max(0, Math.ceil((new Date(freeDateISO + 'T00:00:00') - Date.now()) / 86400000));
+  navigator.setAppBadge(days).catch(() => {});
+}
+
 function getSwReg() {
   if (!('serviceWorker' in navigator)) return Promise.resolve(null);
   return navigator.serviceWorker.ready;
@@ -2009,6 +2036,7 @@ async function subscribeToPush() {
     body: JSON.stringify({
       subscription: sub.toJSON(),
       reminders: (state.reminders || []).filter(r => !r.done && r.due),
+      freeDate: localStorage.getItem('fd:freeDate') || null,
     }),
   }).catch(() => {});
   return sub;
@@ -2024,6 +2052,7 @@ function syncRemindersToServer() {
       subscription: pushSub.toJSON(),
       reminders: (state.reminders || []).filter(r => !r.done && r.due),
       snoozeUntil,
+      freeDate: localStorage.getItem('fd:freeDate') || null,
     }),
   }).catch(() => {});
 }

@@ -212,10 +212,30 @@ async function cronCheck(env) {
 
   // Intentionally re-sends for every due reminder each cron tick (every 15 min).
   // This is not an oversight — persistent nagging until the user marks them done.
+  // Daily countdown push on the 9:00am ET tick — motivational, and it
+  // refreshes the icon badge on days the user never opens the app.
+  const countdownTick = hour === 9 && minute < 15;
+
   for (const key of list.keys) {
     const data = JSON.parse(await env.SUBS.get(key.name));
     if (!data?.subscription?.endpoint) continue;
     if (data.snoozeUntil && Date.now() < data.snoozeUntil) continue;
+
+    // Days until debt free, stamped onto every push so the service worker
+    // can keep the app icon badge current.
+    const badge = data.freeDate
+      ? Math.max(0, Math.ceil((new Date(data.freeDate + 'T00:00:00') - eastern) / 86400000))
+      : undefined;
+
+    if (countdownTick && badge !== undefined) {
+      const result = await sendPush(env, data.subscription, {
+        title: 'Debt Freedom Countdown',
+        body: `${badge} day${badge === 1 ? '' : 's'} until debt free`,
+        tag: 'countdown',
+        badge,
+      });
+      if (result.ok) sent++;
+    }
 
     if (digestTick) {
       const dueSoon = (data.reminders || [])
@@ -228,6 +248,7 @@ async function cronCheck(env) {
           title: 'Tasks This Week',
           body: `${dueSoon.length} due by ${weekEndISO}: ${names}${extra}`,
           tag: 'week-digest',
+          badge,
         });
         if (result.ok) sent++;
       }
@@ -239,6 +260,7 @@ async function cronCheck(env) {
         title: 'Due Today',
         body: r.title,
         tag: 'today-' + r.id,
+        badge,
       });
       if (result.status === 410 || result.status === 404) {
         await env.SUBS.delete(key.name);
@@ -260,15 +282,15 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === '/subscribe' && request.method === 'POST') {
-      const { subscription, reminders } = await request.json();
+      const { subscription, reminders, freeDate } = await request.json();
       if (!subscription?.endpoint) return json({ error: 'no subscription' }, 400);
       const id = b64url(new TextEncoder().encode(subscription.endpoint)).slice(0, 64);
-      await env.SUBS.put(id, JSON.stringify({ subscription, reminders: reminders || [] }));
+      await env.SUBS.put(id, JSON.stringify({ subscription, reminders: reminders || [], freeDate: freeDate || null }));
       return json({ ok: true, id });
     }
 
     if (url.pathname === '/sync' && request.method === 'POST') {
-      const { subscription, reminders, snoozeUntil } = await request.json();
+      const { subscription, reminders, snoozeUntil, freeDate } = await request.json();
       if (!subscription?.endpoint) return json({ error: 'no subscription' }, 400);
       const id = b64url(new TextEncoder().encode(subscription.endpoint)).slice(0, 64);
       const existing = await env.SUBS.get(id);
@@ -276,6 +298,7 @@ export default {
       const data = JSON.parse(existing);
       data.reminders = reminders || [];
       data.snoozeUntil = snoozeUntil || 0;
+      data.freeDate = freeDate || null;
       await env.SUBS.put(id, JSON.stringify(data));
       return json({ ok: true });
     }
