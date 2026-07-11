@@ -50,6 +50,14 @@ jobs:
           convert icon-512.png -resize 96x96   android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
           convert icon-512.png -resize 144x144 android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
           convert icon-512.png -resize 192x192 android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+          # Adaptive-icon foreground (API 26+): center-crop to 84% so the art
+          # bleeds to the mask edge — the launcher then cuts its circle out of
+          # the artwork instead of shrinking the whole square into a white disc.
+          convert icon-512.png -gravity center -crop 430x430+0+0 +repage /tmp/fg.png
+          convert /tmp/fg.png -resize 162x162 android/app/src/main/res/mipmap-hdpi/ic_launcher_foreground.png
+          convert /tmp/fg.png -resize 216x216 android/app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.png
+          convert /tmp/fg.png -resize 324x324 android/app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png
+          convert /tmp/fg.png -resize 432x432 android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png
 
       - name: Decode persistent signing key
         working-directory: android

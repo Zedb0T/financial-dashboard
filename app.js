@@ -476,6 +476,18 @@ function simulatePayoff(opts) {
     }
   }
 
+  // Chart tail: keep plotting 3 months past debt-free so the bank line
+  // visibly climbs instead of the graph stopping the month debt hits zero.
+  // Only touches `history` (the projection chart) — months/schedule/finalBank
+  // still describe the payoff itself.
+  if (!sim.some((d) => d.balance > 0.005)) {
+    let bankTail = bank;
+    for (let i = 1; i <= 3; i++) {
+      bankTail += netCashflow;
+      history.push({ month: month + i, total: 0, bank: bankTail });
+    }
+  }
+
   const order = sim
     .slice()
     .sort((a, b) => (a.paidOffMonth || 9999) - (b.paidOffMonth || 9999));
