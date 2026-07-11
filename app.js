@@ -104,6 +104,7 @@ function loadState() {
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   androidBridgeSync();
+  scheduleSyncPush();
 }
 
 // Inside the Android WebView app, window.AndroidBridge is injected natively.
@@ -2403,10 +2404,204 @@ function escape(str) {
 }
 
 // ---------------------------------------------------------------------------
+// Device sync — end-to-end encrypted blobs on the push server
+// ---------------------------------------------------------------------------
+// The 16-char Crockford-base32 code (80 random bits) is the only secret.
+// Both the storage id and the AES-256-GCM key are SHA-256-derived from it,
+// so the server never sees the code or any plaintext. Guessing a code means
+// enumerating 2^80 possibilities against a network endpoint — not happening.
+
+const SYNC_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'; // Crockford base32: no I, L, O, U
+
+function generateSyncCode() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  let code = '';
+  for (let i = 0; i < 16; i++) code += SYNC_ALPHABET[bytes[i] % 32];
+  return code;
+}
+
+function normalizeSyncCode(input) {
+  return String(input || '')
+    .toUpperCase()
+    .replace(/O/g, '0')
+    .replace(/[IL]/g, '1')
+    .replace(/U/g, 'V')
+    .replace(/[^0-9A-Z]/g, '');
+}
+
+function formatSyncCode(code) {
+  return code.match(/.{1,4}/g)?.join('-') || code;
+}
+
+async function deriveSyncParams(code) {
+  const enc = new TextEncoder();
+  const idBits = await crypto.subtle.digest('SHA-256', enc.encode('fdsync:id:v1:' + code));
+  const keyBits = await crypto.subtle.digest('SHA-256', enc.encode('fdsync:key:v1:' + code));
+  const id = [...new Uint8Array(idBits)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  const key = await crypto.subtle.importKey('raw', keyBits, 'AES-GCM', false, ['encrypt', 'decrypt']);
+  return { id, key };
+}
+
+async function syncEncrypt(key, obj) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv }, key, new TextEncoder().encode(JSON.stringify(obj))));
+  const full = new Uint8Array(iv.length + ct.length);
+  full.set(iv);
+  full.set(ct, iv.length);
+  let s = '';
+  for (const b of full) s += String.fromCharCode(b);
+  return btoa(s);
+}
+
+async function syncDecrypt(key, b64) {
+  const raw = atob(b64);
+  const full = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) full[i] = raw.charCodeAt(i);
+  const pt = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: full.slice(0, 12) }, key, full.slice(12));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+
+let syncPushTimer = null;
+
+function scheduleSyncPush() {
+  if (!localStorage.getItem('fd:syncCode')) return;
+  clearTimeout(syncPushTimer);
+  syncPushTimer = setTimeout(pushSyncState, 1500);
+}
+
+async function pushSyncState() {
+  const code = localStorage.getItem('fd:syncCode');
+  if (!code || !PUSH_SERVER) return;
+  try {
+    const { id, key } = await deriveSyncParams(code);
+    const updatedAt = Date.now();
+    const data = await syncEncrypt(key, { updatedAt, state });
+    const res = await fetch(PUSH_SERVER + '/blob/put', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, data, updatedAt }),
+    });
+    if (res.ok) {
+      localStorage.setItem('fd:syncStamp', String(updatedAt));
+      updateSyncStatus('pushed ' + new Date(updatedAt).toLocaleTimeString());
+    }
+  } catch (_) {}
+}
+
+async function pullSyncState() {
+  const code = localStorage.getItem('fd:syncCode');
+  if (!code || !PUSH_SERVER) return;
+  try {
+    const { id, key } = await deriveSyncParams(code);
+    const res = await fetch(PUSH_SERVER + '/blob/get?id=' + id);
+    if (!res.ok) return;
+    const blob = await res.json();
+    const payload = await syncDecrypt(key, blob.data);
+    const localStamp = Number(localStorage.getItem('fd:syncStamp')) || 0;
+    if (payload.updatedAt > localStamp && payload.state) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload.state));
+      localStorage.setItem('fd:syncStamp', String(payload.updatedAt));
+      state = loadState();
+      renderAll();
+      androidBridgeSync();
+      updateSyncStatus('pulled ' + new Date(payload.updatedAt).toLocaleTimeString());
+      toast('Synced from your other device');
+    }
+  } catch (_) {}
+}
+
+function updateSyncStatus(msg) {
+  const el = document.getElementById('sync-status');
+  if (el && msg) el.textContent = 'End-to-end encrypted • ' + msg;
+}
+
+function refreshSyncUI() {
+  const code = localStorage.getItem('fd:syncCode');
+  const off = document.getElementById('sync-off');
+  const on = document.getElementById('sync-on');
+  if (!off || !on) return;
+  off.style.display = code ? 'none' : '';
+  on.style.display = code ? '' : 'none';
+  if (code) {
+    document.getElementById('sync-code-display').textContent = formatSyncCode(code);
+    updateSyncStatus('ready');
+  }
+}
+
+function initSync() {
+  refreshSyncUI();
+  const createBtn = document.getElementById('sync-create');
+  if (!createBtn) return;
+
+  createBtn.addEventListener('click', async () => {
+    const code = generateSyncCode();
+    localStorage.setItem('fd:syncCode', code);
+    refreshSyncUI();
+    await pushSyncState();
+    toast('Sync code created — enter it on your other device');
+  });
+
+  document.getElementById('sync-join').addEventListener('click', async () => {
+    const code = normalizeSyncCode(document.getElementById('sync-code-input').value);
+    if (code.length !== 16) {
+      toast('Codes are 16 characters, like XXXX-XXXX-XXXX-XXXX', 'error');
+      return;
+    }
+    try {
+      const { id, key } = await deriveSyncParams(code);
+      const res = await fetch(PUSH_SERVER + '/blob/get?id=' + id);
+      if (!res.ok) {
+        toast('No synced data found for that code — check for typos', 'error');
+        return;
+      }
+      const blob = await res.json();
+      const payload = await syncDecrypt(key, blob.data);
+      const hasLocal = state.debts.length || state.incomes.length || state.reminders.length;
+      if (hasLocal && !confirm("Replace this device's data with the synced data?")) return;
+      localStorage.setItem('fd:syncCode', code);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload.state));
+      localStorage.setItem('fd:syncStamp', String(payload.updatedAt));
+      state = loadState();
+      renderAll();
+      androidBridgeSync();
+      refreshSyncUI();
+      toast('Connected — devices are now syncing');
+    } catch (_) {
+      toast("Couldn't read that code's data", 'error');
+    }
+  });
+
+  document.getElementById('sync-copy').addEventListener('click', () => {
+    const code = localStorage.getItem('fd:syncCode') || '';
+    const copy = navigator.clipboard && navigator.clipboard.writeText(formatSyncCode(code));
+    if (copy) copy.then(() => toast('Code copied'), () => toast('Copy failed — select the code manually', 'error'));
+    else toast('Copy failed — select the code manually', 'error');
+  });
+
+  document.getElementById('sync-disconnect').addEventListener('click', () => {
+    if (!confirm('Stop syncing on this device? Local data stays; the code keeps working on other devices.')) return;
+    localStorage.removeItem('fd:syncCode');
+    localStorage.removeItem('fd:syncStamp');
+    refreshSyncUI();
+    toast('Sync disconnected');
+  });
+
+  // Pull fresh data at boot and whenever the app comes back into view
+  pullSyncState();
+  window.addEventListener('focus', pullSyncState);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') pullSyncState();
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
 initTabs();
 initForms();
 initReminders();
 initNotifications();
+initSync();
 renderAll();

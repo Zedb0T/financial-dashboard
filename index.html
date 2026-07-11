@@ -726,6 +726,36 @@
       </div>
 
       <div class="card">
+        <div class="card-head"><h2>Device Sync</h2></div>
+        <div id="sync-off">
+          <p class="muted" style="margin:0 0 12px">
+            Sync your data between two devices with an end-to-end encrypted code.
+            The server only ever stores scrambled data — the code never leaves your devices.
+          </p>
+          <div class="settings-row">
+            <button class="btn primary" id="sync-create">Create Sync Code</button>
+          </div>
+          <div class="sync-join-row">
+            <input type="text" id="sync-code-input" placeholder="XXXX-XXXX-XXXX-XXXX"
+                   autocapitalize="characters" autocomplete="off" spellcheck="false" />
+            <button class="btn" id="sync-join">Connect</button>
+          </div>
+          <p class="help" style="margin-top:8px">
+            Already created a code on another device? Type it above to pull that data here.
+          </p>
+        </div>
+        <div id="sync-on" style="display:none">
+          <p class="muted" style="margin:0 0 8px">Enter this code on your other device:</p>
+          <div class="sync-code-display" id="sync-code-display"></div>
+          <div class="help" id="sync-status" style="margin-top:8px"></div>
+          <div class="settings-row" style="margin-top:12px">
+            <button class="btn" id="sync-copy">Copy Code</button>
+            <button class="btn danger" id="sync-disconnect">Disconnect</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-head"><h2>Notifications</h2></div>
         <label class="rule-toggle">
           <input type="checkbox" id="countdown-badge-toggle" />

@@ -322,6 +322,28 @@ export default {
       return json({ ok: result.ok, status: result.status });
     }
 
+    // --- Device sync: end-to-end encrypted blobs -------------------------
+    // The id is SHA-256-derived from the sync code client-side and the data
+    // is AES-GCM ciphertext, so this server never sees the code or the
+    // plaintext. Blobs expire 180 days after the last write.
+    if (url.pathname === '/blob/put' && request.method === 'POST') {
+      const { id, data, updatedAt } = await request.json();
+      if (!/^[0-9a-f]{64}$/.test(id || '')) return json({ error: 'bad id' }, 400);
+      if (typeof data !== 'string' || data.length > 200000) return json({ error: 'bad data' }, 400);
+      await env.SUBS.put('sync:' + id, JSON.stringify({ data, updatedAt: Number(updatedAt) || Date.now() }), {
+        expirationTtl: 180 * 24 * 3600,
+      });
+      return json({ ok: true });
+    }
+
+    if (url.pathname === '/blob/get') {
+      const id = url.searchParams.get('id') || '';
+      if (!/^[0-9a-f]{64}$/.test(id)) return json({ error: 'bad id' }, 400);
+      const blob = await env.SUBS.get('sync:' + id);
+      if (!blob) return json({ error: 'not found' }, 404);
+      return new Response(blob, { headers: { 'Content-Type': 'application/json', ...CORS } });
+    }
+
     if (url.pathname === '/check') {
       // Manual trigger for debugging only — requires the CHECK_KEY secret,
       // otherwise anyone could spam re-notifications (the URL is public in the repo)

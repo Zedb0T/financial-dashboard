@@ -752,6 +752,42 @@ button { font-family: inherit; }
 #overview-tasks .remind-item { padding: 10px 4px; }
 #overview-tasks .btn-sm { flex-shrink: 0; }
 
+/* Device sync */
+.sync-join-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.sync-join-row input {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-family: ui-monospace, Consolas, monospace;
+  letter-spacing: 0.08em;
+  flex: 1;
+  min-width: 220px;
+  text-transform: uppercase;
+}
+.sync-join-row input:focus { outline: none; border-color: var(--accent); }
+.sync-code-display {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  background: var(--bg);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  text-align: center;
+  user-select: all;
+  word-break: break-all;
+}
+
 .remind-notify-bar { margin-bottom: 14px; }
 .remind-notify-inner {
   display: flex;
