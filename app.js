@@ -1509,9 +1509,11 @@ function renderPlan() {
 
   // App icon badge = days until debt free (iOS 16.4+ home-screen web apps
   // and installed Chrome PWAs). Also synced to the push server so arriving
-  // pushes keep the badge fresh when the app is closed.
+  // pushes keep the badge fresh when the app is closed. Opt-in via the
+  // countdown toggle — a null freeDate turns the feature off server-side too
+  // (no badge stamps, no daily 9am countdown push).
   let freeDateISO = '';
-  if (state.debts.length && !sim.stuck && sim.months > 0) {
+  if (state.settings.countdownBadge && state.debts.length && !sim.stuck && sim.months > 0) {
     const d = new Date();
     d.setMonth(d.getMonth() + sim.months);
     freeDateISO = d.toISOString().slice(0, 10);
@@ -2127,6 +2129,18 @@ function initNotifications() {
   // No point offering the APK download inside the APK itself
   const apkRow = document.getElementById('apk-download-row');
   if (apkRow && window.AndroidBridge) apkRow.style.display = 'none';
+
+  // Debt-free countdown badge + daily push — off by default
+  const cdToggle = document.getElementById('countdown-badge-toggle');
+  if (cdToggle) {
+    cdToggle.checked = !!state.settings.countdownBadge;
+    cdToggle.addEventListener('change', () => {
+      state.settings.countdownBadge = cdToggle.checked;
+      save();
+      renderPlan(); // recomputes freeDate, badge, and syncs the server
+      toast(cdToggle.checked ? 'Countdown badge on' : 'Countdown badge off');
+    });
+  }
 
   function updateUI() {
     if (window.AndroidBridge) {
