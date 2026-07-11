@@ -68,6 +68,37 @@ public class ReminderWorker extends Worker {
                 if (!today.equals(r.optString("due"))) continue;
                 nm.notify(r.optString("id", "r" + i).hashCode(), buildNotification(ctx, "Due Today", r.optString("title", "Reminder")));
             }
+
+            // Daily digest of tasks due within 7 days (or overdue): fires on the
+            // first run after 2:30pm ET, once per day.
+            int minute = cal.get(Calendar.MINUTE);
+            boolean past230 = hour > 14 || (hour == 14 && minute >= 30);
+            android.content.SharedPreferences prefs =
+                ctx.getSharedPreferences(ReminderBridge.PREFS, Context.MODE_PRIVATE);
+            if (past230 && !today.equals(prefs.getString("digestDate", ""))) {
+                Calendar week = (Calendar) cal.clone();
+                week.add(Calendar.DAY_OF_MONTH, 6);
+                String weekEnd = fmt.format(week.getTime());
+                StringBuilder names = new StringBuilder();
+                int count = 0;
+                for (int i = 0; i < reminders.length(); i++) {
+                    JSONObject r = reminders.getJSONObject(i);
+                    if (r.optBoolean("done", false)) continue;
+                    String due = r.optString("due", "");
+                    if (due.isEmpty() || due.compareTo(weekEnd) > 0) continue;
+                    count++;
+                    if (count <= 4) {
+                        if (names.length() > 0) names.append(", ");
+                        names.append(r.optString("title", "Task"));
+                    }
+                }
+                if (count > 0) {
+                    String body = count + " due this week: " + names
+                        + (count > 4 ? " +" + (count - 4) + " more" : "");
+                    nm.notify("week-digest".hashCode(), buildNotification(ctx, "Tasks This Week", body));
+                }
+                prefs.edit().putString("digestDate", today).apply();
+            }
         } catch (Exception ignored) {}
         return Result.success();
     }

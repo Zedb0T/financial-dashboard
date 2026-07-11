@@ -202,12 +202,36 @@ async function cronCheck(env) {
   const list = await env.SUBS.list();
   let sent = 0;
 
+  // Once a day, on the 2:30pm ET cron tick, send a digest of everything due
+  // within the next 7 days (including overdue).
+  const minute = eastern.getMinutes();
+  const digestTick = hour === 14 && minute >= 30 && minute < 45;
+  const weekEnd = new Date(eastern);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+  const weekEndISO = weekEnd.toISOString().slice(0, 10);
+
   // Intentionally re-sends for every due reminder each cron tick (every 15 min).
   // This is not an oversight — persistent nagging until the user marks them done.
   for (const key of list.keys) {
     const data = JSON.parse(await env.SUBS.get(key.name));
     if (!data?.subscription?.endpoint) continue;
     if (data.snoozeUntil && Date.now() < data.snoozeUntil) continue;
+
+    if (digestTick) {
+      const dueSoon = (data.reminders || [])
+        .filter(r => !r.done && r.due && r.due <= weekEndISO)
+        .sort((a, b) => a.due.localeCompare(b.due));
+      if (dueSoon.length) {
+        const names = dueSoon.slice(0, 4).map(r => r.title).join(', ');
+        const extra = dueSoon.length > 4 ? ` +${dueSoon.length - 4} more` : '';
+        const result = await sendPush(env, data.subscription, {
+          title: 'Tasks This Week',
+          body: `${dueSoon.length} due by ${weekEndISO}: ${names}${extra}`,
+          tag: 'week-digest',
+        });
+        if (result.ok) sent++;
+      }
+    }
 
     const dueToday = (data.reminders || []).filter(r => !r.done && r.due === today);
     for (const r of dueToday) {

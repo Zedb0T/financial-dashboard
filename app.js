@@ -173,6 +173,42 @@ function humanMonths(m) {
 function todayISO() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 }
+
+// Next payday for an income with a `payday` anchor date. All math in UTC so
+// DST transitions can't shift the date. Returns { date, days, label } or null.
+function nextPaydayInfo(inc) {
+  if (!inc.payday) return null;
+  const DAY = 86400000;
+  const anchor = new Date(inc.payday + 'T00:00:00Z');
+  if (isNaN(anchor)) return null;
+  const today = new Date(todayISO() + 'T00:00:00Z');
+  const freq = inc.frequency || 'monthly';
+  let next;
+  if (freq === 'weekly' || freq === 'biweekly') {
+    const step = (freq === 'weekly' ? 7 : 14) * DAY;
+    next = new Date(anchor);
+    if (next < today) {
+      const steps = Math.ceil((today - next) / step);
+      next = new Date(next.getTime() + steps * step);
+    }
+  } else if (freq === 'semimonthly') {
+    // Two paydays a month: the anchor's day and that day +/- 15 (capped at 28)
+    const d1 = Math.min(anchor.getUTCDate(), 28);
+    const d2 = d1 <= 13 ? d1 + 15 : d1 - 15;
+    const days = [d1, Math.min(Math.max(d2, 1), 28)].sort((a, b) => a - b);
+    next = new Date(today);
+    for (let i = 0; i < 62 && !days.includes(next.getUTCDate()); i++) {
+      next = new Date(next.getTime() + DAY);
+    }
+  } else { // monthly
+    const dom = Math.min(anchor.getUTCDate(), 28);
+    next = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), dom));
+    if (next < today) next = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, dom));
+  }
+  const days = Math.round((next - today) / DAY);
+  const label = next.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+  return { date: next, days, label };
+}
 function easternHour() {
   return Number(new Date().toLocaleString('en-US', { timeZone: 'America/New_York', hour: 'numeric', hour12: false }));
 }
@@ -557,6 +593,7 @@ function initForms() {
       amount: parseFloat(fd.get('amount')),
       category: fd.get('category'),
       frequency: fd.get('frequency') || 'monthly',
+      payday: fd.get('payday') || '',
     });
     save();
     e.target.reset();
@@ -797,6 +834,56 @@ function renderAll() {
 }
 
 // ---- Overview ------------------------------------------------------------
+// Tasks due within the next 7 days (or overdue) surfaced on the home screen
+function renderOverviewTasks() {
+  const card = document.getElementById('overview-tasks-card');
+  const list = document.getElementById('overview-tasks');
+  if (!card || !list) return;
+
+  const today = todayISO();
+  const end = new Date(today + 'T00:00:00Z');
+  end.setUTCDate(end.getUTCDate() + 6);
+  const endISO = end.toISOString().slice(0, 10);
+
+  const soon = (state.reminders || [])
+    .filter(r => !r.done && r.due && r.due <= endISO)
+    .sort((x, y) => x.due.localeCompare(y.due));
+
+  if (!soon.length) {
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = '';
+  list.innerHTML = soon.map(r => {
+    const days = remindDaysUntil(r.due);
+    let cls = '', when = '';
+    if (days < 0) {
+      cls = 'overdue';
+      when = `${Math.abs(days)}d overdue`;
+    } else if (days === 0) {
+      cls = 'today';
+      when = 'Due today';
+    } else {
+      when = new Date(r.due + 'T00:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+    }
+    return `<div class="remind-item ${cls}">
+      <div class="remind-main">
+        <div class="remind-title">${escape(r.title)}</div>
+        <div class="remind-meta"><span>${when}</span></div>
+      </div>
+      <button class="btn btn-sm" data-ovw-done="${r.id}">Done</button>
+    </div>`;
+  }).join('');
+
+  if (!list.dataset.wired) {
+    list.dataset.wired = '1';
+    list.addEventListener('click', e => {
+      const id = e.target.dataset?.ovwDone;
+      if (id) toggleReminderDone(id);
+    });
+  }
+}
+
 function renderOverview() {
   const a = aggregates();
   document.getElementById('stat-debt').textContent = fmt0(a.totalDebt);
@@ -821,6 +908,8 @@ function renderOverview() {
   const avEl = document.getElementById('stat-available');
   avEl.classList.toggle('pos', a.available > 0);
   avEl.classList.toggle('neg', a.available < 0);
+
+  renderOverviewTasks();
 
   // Bank account card inputs
   const bankEl = document.getElementById('bank-balance');
@@ -1160,12 +1249,16 @@ function renderIncome() {
   const tbody = document.querySelector('#table-income tbody');
   tbody.innerHTML = '';
   if (!state.incomes.length) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="7">No income yet — add a job above.</td></tr>`;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="8">No income yet — add a job above.</td></tr>`;
   } else {
     state.incomes.forEach((i) => {
       const tr = document.createElement('tr');
       const freq = i.frequency || 'monthly';
       const daily = monthlyAmount(i) / 30.44;
+      const pay = nextPaydayInfo(i);
+      const payLabel = pay
+        ? `<div class="payday-next">${pay.label}${pay.days === 0 ? ' — today!' : pay.days === 1 ? ' — tomorrow' : ` — in ${pay.days}d`}</div>`
+        : '<div class="payday-next muted-hint">set a past payday</div>';
       tr.innerHTML = `
         <td class="cell-edit"><input data-kind="inc" data-id="${i.id}" data-field="name" value="${escape(i.name)}" /></td>
         <td class="cell-edit">
@@ -1180,6 +1273,10 @@ function renderIncome() {
             ${Object.entries(FREQ_LABELS)
               .map(([v, lbl]) => `<option value="${v}" ${v === freq ? 'selected' : ''}>${lbl}</option>`).join('')}
           </select>
+        </td>
+        <td class="cell-edit payday-cell">
+          <input data-kind="inc" data-id="${i.id}" data-field="payday" type="date" value="${i.payday || ''}" />
+          ${payLabel}
         </td>
         <td>${fmt(monthlyAmount(i))}</td>
         <td class="pos">${fmt(daily)}</td>
@@ -1410,29 +1507,39 @@ function renderPlan() {
     document.getElementById('plan-monthly').textContent = fmt0(monthlyAlloc);
   }
 
-  // Bank milestones (3 / 6 / 12 months of expenses saved)
+  // Bank milestone (N months of expenses saved, N from the dropdown)
   const netCashflow = a.totalIncome - a.totalExpenses;
-  [3, 6, 12].forEach((m) => {
+  const mSel = document.getElementById('milestone-months');
+  if (!mSel.dataset.wired) {
+    mSel.dataset.wired = '1';
+    mSel.value = localStorage.getItem('fd:milestoneMonths') || '3';
+    mSel.addEventListener('change', () => {
+      localStorage.setItem('fd:milestoneMonths', mSel.value);
+      renderPlan();
+    });
+  }
+  {
+    const m = Number(mSel.value) || 3;
     const target = a.totalExpenses * m;
-    const valEl = document.getElementById(`milestone-${m}`);
-    const subEl = document.getElementById(`milestone-${m}-sub`);
+    const valEl = document.getElementById('milestone-value');
+    const subEl = document.getElementById('milestone-sub');
     if (a.totalExpenses <= 0) {
       valEl.textContent = '—';
       subEl.textContent = 'add expenses first';
-      return;
-    }
-    const months = monthsToHitBankTarget(sim, target, netCashflow, a.bankBalance);
-    if (months == null) {
-      valEl.textContent = '∞';
-      subEl.textContent = `target ${fmt0(target)} • net cashflow not positive`;
-    } else if (months === 0) {
-      valEl.textContent = 'Now';
-      subEl.textContent = `target ${fmt0(target)} • already saved`;
     } else {
-      valEl.textContent = humanMonths(months);
-      subEl.textContent = `target ${fmt0(target)} • ${dateInMonths(months)}`;
+      const months = monthsToHitBankTarget(sim, target, netCashflow, a.bankBalance);
+      if (months == null) {
+        valEl.textContent = '∞';
+        subEl.textContent = `target ${fmt0(target)} • net cashflow not positive`;
+      } else if (months === 0) {
+        valEl.textContent = 'Now';
+        subEl.textContent = `target ${fmt0(target)} • already saved`;
+      } else {
+        valEl.textContent = humanMonths(months);
+        subEl.textContent = `target ${fmt0(target)} • ${dateInMonths(months)}`;
+      }
     }
-  });
+  }
 
   // Order table
   const tbody = document.querySelector('#table-order tbody');
@@ -1787,31 +1894,32 @@ function initReminders() {
 
   document.getElementById('tab-reminders').addEventListener('click', e => {
     const toggleId = e.target.dataset?.remindToggle;
-    if (toggleId) {
-      const r = state.reminders.find(x => x.id === toggleId);
-      if (r) {
-        r.done = !r.done;
-        if (r.done && r.recur && r.due) {
-          state.reminders.push({
-            id: uid(),
-            title: r.title,
-            due: remindNextDate(r.due, r.recur),
-            category: r.category,
-            recur: r.recur,
-            done: false,
-            created: todayISO(),
-          });
-        }
-        save(); renderReminders(); syncRemindersToServer();
-        if (r.done) toast('Done! Nice work.');
-      }
-    }
+    if (toggleId) toggleReminderDone(toggleId);
     const delId = e.target.dataset?.remindDel;
     if (delId) {
       state.reminders = state.reminders.filter(x => x.id !== delId);
       save(); renderReminders(); syncRemindersToServer();
     }
   });
+}
+
+function toggleReminderDone(id) {
+  const r = state.reminders.find(x => x.id === id);
+  if (!r) return;
+  r.done = !r.done;
+  if (r.done && r.recur && r.due) {
+    state.reminders.push({
+      id: uid(),
+      title: r.title,
+      due: remindNextDate(r.due, r.recur),
+      category: r.category,
+      recur: r.recur,
+      done: false,
+      created: todayISO(),
+    });
+  }
+  save(); renderReminders(); renderOverview(); syncRemindersToServer();
+  if (r.done) toast('Done! Nice work.');
 }
 
 // ---- Notifications -------------------------------------------------------

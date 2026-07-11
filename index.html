@@ -35,11 +35,13 @@
       <button class="nav-btn" data-tab="income">Income</button>
       <button class="nav-btn" data-tab="expenses">Expenses</button>
       <button class="nav-btn" data-tab="bank">Bank</button>
-      <button class="nav-btn" data-tab="reminders">Reminders</button>
-      <button class="nav-btn" data-tab="efficiency">Efficiency</button>
       <button class="nav-btn" data-tab="plan">Payoff Plan</button>
+      <button class="nav-btn" data-tab="reminders">Reminders</button>
       <button class="nav-btn" data-tab="progress">Progress</button>
       <button class="nav-btn" data-tab="settings">Settings</button>
+      <!-- Rank/Efficiency tab hidden for now — uncomment to restore
+      <button class="nav-btn" data-tab="efficiency">Efficiency</button>
+      -->
     </nav>
     <div class="sidebar-footer">
       <div class="footer-label">Saved locally in your browser</div>
@@ -80,6 +82,11 @@
           <div class="stat-value" id="stat-available">$0</div>
           <div class="stat-sub" id="stat-available-sub">income − expenses</div>
         </div>
+      </div>
+
+      <div class="card" id="overview-tasks-card" style="display:none">
+        <div class="card-head"><h2>Tasks This Week</h2></div>
+        <div class="remind-list" id="overview-tasks"></div>
       </div>
 
       <div class="split-grid">
@@ -229,6 +236,9 @@
               <option value="Other">Other</option>
             </select>
           </label>
+          <label>A Past Payday <span class="label-hint">optional — anchors the schedule</span>
+            <input name="payday" type="date" />
+          </label>
           <div class="form-actions">
             <button type="submit" class="btn primary">Add Income</button>
           </div>
@@ -240,11 +250,11 @@
         <div class="table-wrap">
           <table class="table" id="table-income">
             <thead>
-              <tr><th>Source</th><th>Category</th><th>Pay</th><th>Frequency</th><th>Monthly</th><th>Income / Day</th><th></th></tr>
+              <tr><th>Source</th><th>Category</th><th>Pay</th><th>Frequency</th><th>Next Payday</th><th>Monthly</th><th>Income / Day</th><th></th></tr>
             </thead>
             <tbody></tbody>
             <tfoot>
-              <tr><td>Total Monthly</td><td></td><td></td><td></td><td id="income-total">$0</td><td id="income-daily-total">$0</td><td></td></tr>
+              <tr><td>Total Monthly</td><td></td><td></td><td></td><td></td><td id="income-total">$0</td><td id="income-daily-total">$0</td><td></td></tr>
             </tfoot>
           </table>
         </div>
@@ -604,19 +614,16 @@
 
       <div class="stat-grid stat-grid-3">
         <div class="stat card">
-          <div class="stat-label">3 Months in Bank</div>
-          <div class="stat-value" id="milestone-3">—</div>
-          <div class="stat-sub" id="milestone-3-sub">target —</div>
-        </div>
-        <div class="stat card">
-          <div class="stat-label">6 Months in Bank</div>
-          <div class="stat-value" id="milestone-6">—</div>
-          <div class="stat-sub" id="milestone-6-sub">target —</div>
-        </div>
-        <div class="stat card">
-          <div class="stat-label">12 Months in Bank</div>
-          <div class="stat-value" id="milestone-12">—</div>
-          <div class="stat-sub" id="milestone-12-sub">target —</div>
+          <div class="stat-label milestone-label">
+            <select id="milestone-months">
+              <option value="3">3</option>
+              <option value="6">6</option>
+              <option value="12">12</option>
+            </select>
+            Months in Bank
+          </div>
+          <div class="stat-value" id="milestone-value">—</div>
+          <div class="stat-sub" id="milestone-sub">target —</div>
         </div>
       </div>
 
