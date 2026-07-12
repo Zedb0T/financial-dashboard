@@ -68,7 +68,10 @@ function migrate(s) {
       note: p.note || (p.debtName ? `Was payment to ${p.debtName}` : ''),
     }));
   }
-  out.bonuses = out.bonuses || [];
+  // Bonuses predating the `applied` flag were added to the bank at creation
+  out.bonuses = (out.bonuses || []).map((b) =>
+    b.applied === undefined ? { ...b, applied: true } : b
+  );
   out.reminders = out.reminders || [];
   delete out.payments;
   out.incomes = (out.incomes || []).map((i) => ({
@@ -327,6 +330,7 @@ function simulatePayoff(opts) {
     threshold = 6000,
     useRule = false,
     holdZeroPct = false,
+    pendingBonuses = [],
   } = opts;
 
   const empty = {
@@ -418,8 +422,11 @@ function simulatePayoff(opts) {
       totalInterest += interest;
     }
 
-    // 3) bank receives net cashflow
+    // 3) bank receives net cashflow, plus any bonus landing this month
     bank += netCashflow;
+    for (const b of pendingBonuses) {
+      if (b.month === month) bank += b.amount;
+    }
 
     // 4) pay minimums (priority order, capped by balance)
     let minimumsPaid = 0;
@@ -538,6 +545,9 @@ function simulatePayoff(opts) {
     let bankTail = bank;
     for (let i = 1; i <= 3; i++) {
       bankTail += netCashflow;
+      for (const b of pendingBonuses) {
+        if (b.month === month + i) bankTail += b.amount;
+      }
       history.push({ month: month + i, total: 0, bank: bankTail });
     }
   }
@@ -602,6 +612,17 @@ function simOpts() {
     threshold: a.emergencyFund,
     useRule: a.useRule,
     holdZeroPct: !!state.settings.holdZeroPct,
+    // Not-yet-received bonuses, mapped to the simulation month they land in
+    // (month 1 = the current month's cycle)
+    pendingBonuses: (state.bonuses || [])
+      .filter((b) => !b.applied && b.date && Number(b.amount) > 0)
+      .map((b) => {
+        const now = new Date(todayISO() + 'T00:00:00Z');
+        const d = new Date(b.date + 'T00:00:00Z');
+        const month = Math.max(1,
+          (d.getUTCFullYear() - now.getUTCFullYear()) * 12 + (d.getUTCMonth() - now.getUTCMonth()) + 1);
+        return { month, amount: Number(b.amount) };
+      }),
   };
 }
 
@@ -682,7 +703,8 @@ function initForms() {
     toast('Expense added');
   });
 
-  // One-time bonus form (adds to bank balance)
+  // One-time bonus form. Past/today bonuses land in the bank immediately;
+  // future ones stay pending until their date (and feed the projections).
   document.getElementById('form-bonus').addEventListener('submit', (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
@@ -691,18 +713,25 @@ function initForms() {
       toast('Enter a positive amount', 'error');
       return;
     }
-    state.settings.bankBalance =
-      (Number(state.settings.bankBalance) || 0) + amount;
+    const date = fd.get('date') || todayISO();
+    const received = date <= todayISO();
+    if (received) {
+      state.settings.bankBalance =
+        (Number(state.settings.bankBalance) || 0) + amount;
+    }
     state.bonuses.push({
       id: uid(),
       amount,
-      date: fd.get('date') || todayISO(),
+      date,
       note: (fd.get('note') || '').trim(),
+      applied: received,
     });
     save();
     e.target.reset();
     renderAll();
-    toast(`Added ${fmt(amount)} to bank`);
+    toast(received
+      ? `Added ${fmt(amount)} to bank`
+      : `${fmt(amount)} scheduled — lands in your bank on ${date}`);
   });
 
   // Strategy radios
@@ -1300,6 +1329,26 @@ function renderDebts() {
   });
 }
 
+// Land any pending bonuses whose date has arrived. Idempotent via the
+// `applied` flag; safe to call at boot, on focus, and after sync pulls.
+function applyDueBonuses() {
+  const today = todayISO();
+  let landed = 0;
+  for (const b of state.bonuses || []) {
+    if (!b.applied && b.date && b.date <= today) {
+      state.settings.bankBalance =
+        (Number(state.settings.bankBalance) || 0) + (Number(b.amount) || 0);
+      b.applied = true;
+      landed += Number(b.amount) || 0;
+    }
+  }
+  if (landed > 0) {
+    save();
+    renderAll();
+    toast(`${fmt(landed)} bonus landed in your bank`);
+  }
+}
+
 function renderBonuses() {
   const dateInp = document.querySelector('#form-bonus input[name="date"]');
   if (dateInp && !dateInp.value) dateInp.value = todayISO();
@@ -1316,7 +1365,7 @@ function renderBonuses() {
   sorted.forEach((p) => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${p.date}</td>
+      <td>${p.date}${p.applied ? '' : ' <span class="bonus-pending">pending</span>'}</td>
       <td>${fmt(p.amount)}</td>
       <td>${escape(p.note || '')}</td>
       <td><button class="btn ghost" data-del-bonus="${p.id}">Delete</button></td>
@@ -2589,6 +2638,7 @@ async function pullSyncState() {
       state = loadState();
       renderAll();
       androidBridgeSync();
+      applyDueBonuses();
       updateSyncStatus('pulled ' + new Date(payload.updatedAt).toLocaleTimeString());
       toast('Synced from your other device');
     }
@@ -2688,3 +2738,8 @@ initReminders();
 initNotifications();
 initSync();
 renderAll();
+applyDueBonuses();
+window.addEventListener('focus', applyDueBonuses);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') applyDueBonuses();
+});

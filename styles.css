@@ -504,6 +504,20 @@ button { font-family: inherit; }
   outline: none;
   border-color: var(--accent);
 }
+.bonus-pending {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--warn);
+  border: 1px solid var(--warn);
+  border-radius: 999px;
+  padding: 1px 7px;
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+
 .bank-eom {
   font-size: 12px;
   color: var(--text-dim);
