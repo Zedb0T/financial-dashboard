@@ -216,6 +216,9 @@ async function cronCheck(env) {
   // refreshes the icon badge on days the user never opens the app.
   const countdownTick = hour === 9 && minute < 15;
 
+  // Monthly nag on the 1st at 3:30pm ET: bills just posted, update balances
+  const balanceNagTick = eastern.getDate() === 1 && hour === 15 && minute >= 30 && minute < 45;
+
   for (const key of list.keys) {
     const data = JSON.parse(await env.SUBS.get(key.name));
     if (!data?.subscription?.endpoint) continue;
@@ -232,6 +235,16 @@ async function cronCheck(env) {
         title: 'Debt Freedom Countdown',
         body: `${badge} day${badge === 1 ? '' : 's'} until debt free`,
         tag: 'countdown',
+        badge,
+      });
+      if (result.ok) sent++;
+    }
+
+    if (balanceNagTick) {
+      const result = await sendPush(env, data.subscription, {
+        title: 'New Month — Update Balances',
+        body: 'Bills just posted. Update your debt balances and bank total to keep the plan accurate.',
+        tag: 'balance-nag',
         badge,
       });
       if (result.ok) sent++;

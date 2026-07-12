@@ -99,6 +99,17 @@ public class ReminderWorker extends Worker {
                 }
                 prefs.edit().putString("digestDate", today).apply();
             }
+
+            // Monthly nag: 1st of the month, first run at/after 3:30pm ET —
+            // bills just posted, time to update balances.
+            boolean past330 = hour > 15 || (hour == 15 && minute >= 30);
+            if (cal.get(Calendar.DAY_OF_MONTH) == 1 && past330
+                && !today.equals(prefs.getString("balanceNagDate", ""))) {
+                nm.notify("balance-nag".hashCode(), buildNotification(ctx,
+                    "New Month — Update Balances",
+                    "Bills just posted. Update your debt balances and bank total to keep the plan accurate."));
+                prefs.edit().putString("balanceNagDate", today).apply();
+            }
         } catch (Exception ignored) {}
         return Result.success();
     }
