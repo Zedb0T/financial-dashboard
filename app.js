@@ -1603,10 +1603,15 @@ function renderPlan() {
   // pushes keep the badge fresh when the app is closed. Opt-in via the
   // countdown toggle — a null freeDate turns the feature off server-side too
   // (no badge stamps, no daily 9am countdown push).
+  //
+  // Anchored to the 1ST of the payoff month, not today+N months: sim months
+  // resolve at month boundaries (when the bills get paid), and a fixed
+  // calendar date is what makes the day count actually tick down daily
+  // instead of drifting forward with each app open.
   let freeDateISO = '';
   if (state.settings.countdownBadge && state.debts.length && !sim.stuck && sim.months > 0) {
-    const d = new Date();
-    d.setMonth(d.getMonth() + sim.months);
+    const now = new Date();
+    const d = new Date(Date.UTC(now.getFullYear(), now.getMonth() + sim.months, 1));
     freeDateISO = d.toISOString().slice(0, 10);
   }
   if (localStorage.getItem('fd:freeDate') !== freeDateISO) {
