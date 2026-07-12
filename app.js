@@ -210,6 +210,59 @@ function nextPaydayInfo(inc) {
   const label = next.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
   return { date: next, days, label };
 }
+
+// Paychecks still coming before the end of THIS month (strictly after today —
+// a check that landed today is money you already have). Needs the payday
+// anchor; incomes without one are reported in `missing`.
+function remainingIncomeThisMonth() {
+  const DAY = 86400000;
+  const today = new Date(todayISO() + 'T00:00:00Z');
+  const monthEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0));
+  let total = 0;
+  let checks = 0;
+  const missing = [];
+
+  for (const inc of state.incomes) {
+    const amount = Number(inc.amount) || 0;
+    if (amount <= 0) continue;
+    if (!inc.payday) {
+      missing.push(inc.name);
+      continue;
+    }
+    const anchor = new Date(inc.payday + 'T00:00:00Z');
+    if (isNaN(anchor)) {
+      missing.push(inc.name);
+      continue;
+    }
+    const freq = inc.frequency || 'monthly';
+    let count = 0;
+    if (freq === 'weekly' || freq === 'biweekly') {
+      const step = (freq === 'weekly' ? 7 : 14) * DAY;
+      let next = new Date(anchor);
+      if (next <= today) {
+        const steps = Math.floor((today - next) / step) + 1;
+        next = new Date(next.getTime() + steps * step);
+      }
+      while (next <= monthEnd) {
+        count++;
+        next = new Date(next.getTime() + step);
+      }
+    } else if (freq === 'semimonthly') {
+      const d1 = Math.min(anchor.getUTCDate(), 28);
+      const d2raw = d1 <= 13 ? d1 + 15 : d1 - 15;
+      const days = [d1, Math.min(Math.max(d2raw, 1), 28)];
+      for (const d of days) {
+        if (d > today.getUTCDate() && d <= monthEnd.getUTCDate()) count++;
+      }
+    } else { // monthly
+      const dom = Math.min(anchor.getUTCDate(), 28);
+      if (dom > today.getUTCDate()) count++;
+    }
+    total += amount * count;
+    checks += count;
+  }
+  return { total, checks, missing };
+}
 function easternHour() {
   return Number(new Date().toLocaleString('en-US', { timeZone: 'America/New_York', hour: 'numeric', hour12: false }));
 }
@@ -947,6 +1000,22 @@ function renderOverview() {
     bufSub.textContent = a.useRule
       ? 'Building up — only minimums apply'
       : `${fmt0(-buffer)} below threshold`;
+  }
+
+  // Remaining paychecks this month
+  const ri = remainingIncomeThisMonth();
+  const riVal = document.getElementById('bank-remaining-income');
+  const riSub = document.getElementById('bank-remaining-income-sub');
+  if (riVal && riSub) {
+    riVal.textContent = fmt0(ri.total);
+    if (ri.checks > 0) {
+      riSub.textContent = `${ri.checks} paycheck${ri.checks === 1 ? '' : 's'} still coming`
+        + (ri.missing.length ? ` • no payday set: ${ri.missing.join(', ')}` : '');
+    } else if (ri.missing.length) {
+      riSub.textContent = `Set a past payday on the Income tab for: ${ri.missing.join(', ')}`;
+    } else {
+      riSub.textContent = 'No paychecks left this month';
+    }
   }
 
   // Countdown
