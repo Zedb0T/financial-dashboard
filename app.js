@@ -1018,6 +1018,15 @@ function renderOverview() {
     }
   }
 
+  // Month-end trajectory under the balance input: balance + checks still coming
+  const eomRow = document.getElementById('bank-eom');
+  if (eomRow) {
+    eomRow.style.display = ri.checks > 0 ? '' : 'none';
+    if (ri.checks > 0) {
+      document.getElementById('bank-eom-value').textContent = fmt0(a.bankBalance + ri.total);
+    }
+  }
+
   // Countdown
   const sim = simulatePayoff(simOpts());
   if (!state.debts.length) {

@@ -504,6 +504,15 @@ button { font-family: inherit; }
   outline: none;
   border-color: var(--accent);
 }
+.bank-eom {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.bank-eom span {
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .bank-status-cell {
   display: flex;
   flex-direction: column;

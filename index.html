@@ -327,6 +327,9 @@
         <div class="bank-grid">
           <label>Current Bank Balance ($)
             <input id="bank-balance" type="number" step="0.01" min="0" placeholder="0.00" />
+            <div class="bank-eom" id="bank-eom" style="display:none">
+              On track for <span id="bank-eom-value">—</span> by month-end
+            </div>
           </label>
           <label>Emergency Fund Threshold ($)
             <input id="emergency-fund" type="number" step="0.01" min="0" placeholder="6000.00" />
