@@ -214,52 +214,55 @@ function nextPaydayInfo(inc) {
   return { date: next, days, label };
 }
 
-// Paychecks still coming before the end of THIS month (strictly after today —
-// a check that landed today is money you already have). Needs the payday
-// anchor; incomes without one are reported in `missing`.
-function remainingIncomeThisMonth() {
+// Paydays for ONE income remaining before month-end (strictly after today —
+// a check that landed today is money you already have). Null without an anchor.
+function paychecksLeftThisMonth(inc) {
+  if (!inc.payday) return null;
   const DAY = 86400000;
+  const anchor = new Date(inc.payday + 'T00:00:00Z');
+  if (isNaN(anchor)) return null;
   const today = new Date(todayISO() + 'T00:00:00Z');
   const monthEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0));
+  const freq = inc.frequency || 'monthly';
+  let count = 0;
+  if (freq === 'weekly' || freq === 'biweekly') {
+    const step = (freq === 'weekly' ? 7 : 14) * DAY;
+    let next = new Date(anchor);
+    if (next <= today) {
+      const steps = Math.floor((today - next) / step) + 1;
+      next = new Date(next.getTime() + steps * step);
+    }
+    while (next <= monthEnd) {
+      count++;
+      next = new Date(next.getTime() + step);
+    }
+  } else if (freq === 'semimonthly') {
+    const d1 = Math.min(anchor.getUTCDate(), 28);
+    const d2raw = d1 <= 13 ? d1 + 15 : d1 - 15;
+    const days = [d1, Math.min(Math.max(d2raw, 1), 28)];
+    for (const d of days) {
+      if (d > today.getUTCDate() && d <= monthEnd.getUTCDate()) count++;
+    }
+  } else { // monthly
+    const dom = Math.min(anchor.getUTCDate(), 28);
+    if (dom > today.getUTCDate()) count++;
+  }
+  return count;
+}
+
+// Sum of paychecks still coming this month across all incomes; incomes
+// without a payday anchor are reported in `missing`.
+function remainingIncomeThisMonth() {
   let total = 0;
   let checks = 0;
   const missing = [];
-
   for (const inc of state.incomes) {
     const amount = Number(inc.amount) || 0;
     if (amount <= 0) continue;
-    if (!inc.payday) {
+    const count = paychecksLeftThisMonth(inc);
+    if (count == null) {
       missing.push(inc.name);
       continue;
-    }
-    const anchor = new Date(inc.payday + 'T00:00:00Z');
-    if (isNaN(anchor)) {
-      missing.push(inc.name);
-      continue;
-    }
-    const freq = inc.frequency || 'monthly';
-    let count = 0;
-    if (freq === 'weekly' || freq === 'biweekly') {
-      const step = (freq === 'weekly' ? 7 : 14) * DAY;
-      let next = new Date(anchor);
-      if (next <= today) {
-        const steps = Math.floor((today - next) / step) + 1;
-        next = new Date(next.getTime() + steps * step);
-      }
-      while (next <= monthEnd) {
-        count++;
-        next = new Date(next.getTime() + step);
-      }
-    } else if (freq === 'semimonthly') {
-      const d1 = Math.min(anchor.getUTCDate(), 28);
-      const d2raw = d1 <= 13 ? d1 + 15 : d1 - 15;
-      const days = [d1, Math.min(Math.max(d2raw, 1), 28)];
-      for (const d of days) {
-        if (d > today.getUTCDate() && d <= monthEnd.getUTCDate()) count++;
-      }
-    } else { // monthly
-      const dom = Math.min(anchor.getUTCDate(), 28);
-      if (dom > today.getUTCDate()) count++;
     }
     total += amount * count;
     checks += count;
@@ -1396,8 +1399,12 @@ function renderIncome() {
       const freq = i.frequency || 'monthly';
       const daily = monthlyAmount(i) / 30.44;
       const pay = nextPaydayInfo(i);
+      const left = paychecksLeftThisMonth(i);
+      const leftLabel = left != null
+        ? ` • ${left} left this month`
+        : '';
       const payLabel = pay
-        ? `<div class="payday-next">${pay.label}${pay.days === 0 ? ' — today!' : pay.days === 1 ? ' — tomorrow' : ` — in ${pay.days}d`}</div>`
+        ? `<div class="payday-next">${pay.label}${pay.days === 0 ? ' — today!' : pay.days === 1 ? ' — tomorrow' : ` — in ${pay.days}d`}${leftLabel}</div>`
         : '<div class="payday-next muted-hint">set a past payday</div>';
       tr.innerHTML = `
         <td class="cell-edit"><input data-kind="inc" data-id="${i.id}" data-field="name" value="${escape(i.name)}" /></td>
