@@ -759,6 +759,9 @@ button { font-family: inherit; }
 }
 .payday-next { font-size: 11px; color: var(--accent); margin-top: 3px; white-space: nowrap; }
 .payday-next.muted-hint { color: var(--text-muted); }
+.exp-due-cell .btn-sm { margin-top: 5px; }
+.expense-remaining-row td { color: var(--warn); font-weight: 600; }
+.expense-remaining-row .muted-hint { font-weight: 400; }
 
 /* Months-in-bank dropdown inside the stat label */
 .milestone-label select {

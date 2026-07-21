@@ -269,6 +269,61 @@ function remainingIncomeThisMonth() {
   }
   return { total, checks, missing };
 }
+
+// --- Expense due-dates ------------------------------------------------------
+// Budget items default to being paid on the 1st. An optional payAnchor (a
+// previous payment date) sets the recurring day-of-month; a paidEarly stamp
+// ("YYYY-MM") marks it settled for that month even before its day arrives.
+
+function currentMonthKey() {
+  return todayISO().slice(0, 7); // Eastern YYYY-MM
+}
+
+function expenseDueDay(x) {
+  if (!x.payAnchor) return 1;
+  const d = new Date(x.payAnchor + 'T00:00:00Z');
+  if (isNaN(d)) return 1;
+  return Math.min(d.getUTCDate(), 28); // cap so short months don't skip it
+}
+
+// Next date this bill is due (>= today), rolling to next month if already
+// marked paid early this month.
+function expenseNextDueInfo(x) {
+  const DAY = 86400000;
+  const dom = expenseDueDay(x);
+  const today = new Date(todayISO() + 'T00:00:00Z');
+  let next = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), dom));
+  if (next < today) next = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, dom));
+  if (x.paidEarly === currentMonthKey()
+      && next.getUTCMonth() === today.getUTCMonth()
+      && next.getUTCFullYear() === today.getUTCFullYear()) {
+    next = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, dom));
+  }
+  const days = Math.round((next - today) / DAY);
+  const label = next.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+  return { date: next, days, label };
+}
+
+// A bill is "remaining" if its due day is strictly after today and it hasn't
+// been marked paid early this month.
+function isExpenseRemaining(x) {
+  if ((Number(x.amount) || 0) <= 0) return false;
+  if (x.paidEarly === currentMonthKey()) return false;
+  const todayDay = new Date(todayISO() + 'T00:00:00Z').getUTCDate();
+  return expenseDueDay(x) > todayDay;
+}
+
+function remainingExpensesThisMonth() {
+  let total = 0;
+  let count = 0;
+  for (const x of state.expenses) {
+    if (isExpenseRemaining(x)) {
+      total += Number(x.amount) || 0;
+      count++;
+    }
+  }
+  return { total, count };
+}
 function easternHour() {
   return Number(new Date().toLocaleString('en-US', { timeZone: 'America/New_York', hour: 'numeric', hour12: false }));
 }
@@ -1050,12 +1105,16 @@ function renderOverview() {
     }
   }
 
-  // Month-end trajectory under the balance input: balance + checks still coming
+  // Month-end trajectory under the balance input:
+  // balance + paychecks still coming − bills still due this month
+  const re = remainingExpensesThisMonth();
   const eomRow = document.getElementById('bank-eom');
   if (eomRow) {
-    eomRow.style.display = ri.checks > 0 ? '' : 'none';
-    if (ri.checks > 0) {
-      document.getElementById('bank-eom-value').textContent = fmt0(a.bankBalance + ri.total);
+    const show = ri.checks > 0 || re.count > 0;
+    eomRow.style.display = show ? '' : 'none';
+    if (show) {
+      document.getElementById('bank-eom-value').textContent =
+        fmt0(a.bankBalance + ri.total - re.total);
     }
   }
 
@@ -1465,10 +1524,23 @@ function renderExpenses() {
     (a, b) => (Number(b.amount) || 0) - (Number(a.amount) || 0)
   );
   if (!sortedExpenses.length) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="5">No expenses yet — add one above.</td></tr>`;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="6">No expenses yet — add one above.</td></tr>`;
   } else {
+    const monthKey = currentMonthKey();
     sortedExpenses.forEach((x) => {
       const daily = (Number(x.amount) || 0) / 30.44;
+      const info = expenseNextDueInfo(x);
+      const daysTxt = info.days === 0 ? 'today' : info.days === 1 ? 'tomorrow' : `in ${info.days}d`;
+      let dueHtml;
+      if (x.paidEarly === monthKey) {
+        dueHtml = `<div class="payday-next">Paid this month &#10003; • next ${info.label}</div>`
+          + `<button class="btn btn-sm ghost" data-unpay="${x.id}">Undo</button>`;
+      } else if (isExpenseRemaining(x)) {
+        dueHtml = `<div class="payday-next">${info.label} — ${daysTxt}</div>`
+          + `<button class="btn btn-sm" data-paid-early="${x.id}">Paid early</button>`;
+      } else {
+        dueHtml = `<div class="payday-next muted-hint">paid • next ${info.label}</div>`;
+      }
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td class="cell-edit"><input data-kind="exp" data-id="${x.id}" data-field="name" value="${escape(x.name)}" /></td>
@@ -1480,6 +1552,11 @@ function renderExpenses() {
         </td>
         <td class="cell-edit"><input data-kind="exp" data-id="${x.id}" data-field="amount" type="number" step="0.01" min="0" value="${x.amount}" /></td>
         <td>${fmt(daily)}</td>
+        <td class="cell-edit payday-cell exp-due-cell">
+          <input data-kind="exp" data-id="${x.id}" data-field="payAnchor" type="date" value="${x.payAnchor || ''}"
+                 title="A previous payment date sets the recurring due day (default: the 1st)" />
+          ${dueHtml}
+        </td>
         <td><button class="btn ghost" data-del-exp="${x.id}">Delete</button></td>
       `;
       tbody.appendChild(tr);
@@ -1508,6 +1585,12 @@ function renderExpenses() {
   const totalOutflowMonthly = expTotal + debtMinsMonthly;
   document.getElementById('expenses-total').textContent = fmt(totalOutflowMonthly);
   document.getElementById('expenses-daily-total').textContent = fmt(totalOutflowMonthly / 30.44);
+
+  // Remaining bills still due this month (minimums assumed paid on the 1st)
+  const re = remainingExpensesThisMonth();
+  document.getElementById('expenses-remaining-monthly').textContent = fmt(re.total);
+  document.getElementById('expenses-remaining-sub').textContent =
+    re.count ? `${re.count} bill${re.count === 1 ? '' : 's'} still due` : 'all bills paid';
 
   // Income row
   const incomeMonthly = totalMonthlyIncome();
@@ -1541,6 +1624,26 @@ function renderExpenses() {
       save();
       renderAll();
       toast('Expense removed');
+    });
+  });
+  tbody.querySelectorAll('button[data-paid-early]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const x = state.expenses.find((e) => e.id === btn.dataset.paidEarly);
+      if (!x) return;
+      x.paidEarly = currentMonthKey();
+      save();
+      renderAll();
+      toast('Marked paid for this month');
+    });
+  });
+  tbody.querySelectorAll('button[data-unpay]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const x = state.expenses.find((e) => e.id === btn.dataset.unpay);
+      if (!x) return;
+      delete x.paidEarly;
+      save();
+      renderAll();
+      toast('Marked unpaid');
     });
   });
 }

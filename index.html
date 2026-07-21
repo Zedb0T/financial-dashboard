@@ -300,15 +300,16 @@
         <div class="table-wrap">
           <table class="table" id="table-expenses">
             <thead>
-              <tr><th>Name</th><th>Category</th><th>Monthly</th><th>Cost / Day</th><th></th></tr>
+              <tr><th>Name</th><th>Category</th><th>Monthly</th><th>Cost / Day</th><th>Next Due</th><th></th></tr>
             </thead>
             <tbody></tbody>
             <tfoot>
-              <tr class="expense-debt-row"><td>Debt Minimums</td><td>Debt</td><td id="expenses-mins-monthly" class="neg">$0</td><td id="expenses-mins-daily" class="neg">$0</td><td></td></tr>
-              <tr class="expense-debt-row"><td>Debt Interest</td><td>Debt</td><td id="expenses-debt-monthly" class="neg">$0</td><td id="expenses-debt-daily" class="neg">$0</td><td></td></tr>
-              <tr><td><strong>Total Outflow</strong></td><td></td><td id="expenses-total">$0</td><td id="expenses-daily-total">$0</td><td></td></tr>
-              <tr class="expense-income-row"><td>Income</td><td></td><td id="expenses-income-monthly" class="pos">$0</td><td id="expenses-income-daily" class="pos">$0</td><td></td></tr>
-              <tr class="expense-net-row"><td><strong>Net</strong></td><td></td><td id="expenses-net-monthly">$0</td><td id="expenses-net-daily">$0</td><td></td></tr>
+              <tr class="expense-debt-row"><td>Debt Minimums</td><td>Debt</td><td id="expenses-mins-monthly" class="neg">$0</td><td id="expenses-mins-daily" class="neg">$0</td><td class="muted-hint">on the 1st</td><td></td></tr>
+              <tr class="expense-debt-row"><td>Debt Interest</td><td>Debt</td><td id="expenses-debt-monthly" class="neg">$0</td><td id="expenses-debt-daily" class="neg">$0</td><td></td><td></td></tr>
+              <tr><td><strong>Total Outflow</strong></td><td></td><td id="expenses-total">$0</td><td id="expenses-daily-total">$0</td><td></td><td></td></tr>
+              <tr class="expense-remaining-row"><td><strong>Remaining This Month</strong></td><td></td><td id="expenses-remaining-monthly">$0</td><td></td><td id="expenses-remaining-sub" class="muted-hint"></td><td></td></tr>
+              <tr class="expense-income-row"><td>Income</td><td></td><td id="expenses-income-monthly" class="pos">$0</td><td id="expenses-income-daily" class="pos">$0</td><td></td><td></td></tr>
+              <tr class="expense-net-row"><td><strong>Net</strong></td><td></td><td id="expenses-net-monthly">$0</td><td id="expenses-net-daily">$0</td><td></td><td></td></tr>
             </tfoot>
           </table>
         </div>
