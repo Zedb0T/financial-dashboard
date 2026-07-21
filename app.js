@@ -270,16 +270,18 @@ function remainingIncomeThisMonth() {
   return { total, checks, missing };
 }
 
-// --- Expense due-dates ------------------------------------------------------
-// Budget items default to being paid on the 1st. An optional payAnchor (a
-// previous payment date) sets the recurring day-of-month; a paidEarly stamp
-// ("YYYY-MM") marks it settled for that month even before its day arrives.
+// --- Bill due-dates ---------------------------------------------------------
+// Expenses and debt minimums default to being paid on the 1st. An optional
+// payAnchor (a previous payment date) sets the recurring day-of-month; a
+// paidEarly stamp ("YYYY-MM") marks it settled for that month even before its
+// day arrives. These date helpers only read payAnchor/paidEarly, so they work
+// for any item — expenses and debts alike.
 
 function currentMonthKey() {
   return todayISO().slice(0, 7); // Eastern YYYY-MM
 }
 
-function expenseDueDay(x) {
+function billDueDay(x) {
   if (!x.payAnchor) return 1;
   const d = new Date(x.payAnchor + 'T00:00:00Z');
   if (isNaN(d)) return 1;
@@ -288,9 +290,9 @@ function expenseDueDay(x) {
 
 // Next date this bill is due (>= today), rolling to next month if already
 // marked paid early this month.
-function expenseNextDueInfo(x) {
+function billNextDueInfo(x) {
   const DAY = 86400000;
-  const dom = expenseDueDay(x);
+  const dom = billDueDay(x);
   const today = new Date(todayISO() + 'T00:00:00Z');
   let next = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), dom));
   if (next < today) next = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, dom));
@@ -304,21 +306,35 @@ function expenseNextDueInfo(x) {
   return { date: next, days, label };
 }
 
-// A bill is "remaining" if its due day is strictly after today and it hasn't
-// been marked paid early this month.
-function isExpenseRemaining(x) {
-  if ((Number(x.amount) || 0) <= 0) return false;
+// A bill is "remaining" if the amount is positive, its due day is strictly
+// after today, and it hasn't been marked paid early this month.
+function isBillRemaining(x, amount) {
+  if ((Number(amount) || 0) <= 0) return false;
   if (x.paidEarly === currentMonthKey()) return false;
   const todayDay = new Date(todayISO() + 'T00:00:00Z').getUTCDate();
-  return expenseDueDay(x) > todayDay;
+  return billDueDay(x) > todayDay;
 }
 
 function remainingExpensesThisMonth() {
   let total = 0;
   let count = 0;
   for (const x of state.expenses) {
-    if (isExpenseRemaining(x)) {
+    if (isBillRemaining(x, x.amount)) {
       total += Number(x.amount) || 0;
+      count++;
+    }
+  }
+  return { total, count };
+}
+
+// Debt minimums still due this month (their effective minimum is the amount)
+function remainingMinimumsThisMonth() {
+  let total = 0;
+  let count = 0;
+  for (const d of state.debts) {
+    const min = effectiveMin(d);
+    if (isBillRemaining(d, min)) {
+      total += min;
       count++;
     }
   }
@@ -1263,14 +1279,29 @@ function renderDebts() {
   const sortedDebts = [...state.debts].sort((a, b) => costPerDay(b) - costPerDay(a));
 
   if (!sortedDebts.length) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="11">No debts yet — add one above.</td></tr>`;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="12">No debts yet — add one above.</td></tr>`;
   } else {
+    const monthKey = currentMonthKey();
     sortedDebts.forEach((d) => {
       const balance = Number(d.balance) || 0;
       const dailyCost = costPerDay(d);
       const monthlyInt = (balance * (Number(d.apr) || 0)) / 100 / 12;
       const type = d.type || 'card';
       const effMin = effectiveMin(d);
+      const dueInfo = billNextDueInfo(d);
+      const dueDaysTxt = dueInfo.days === 0 ? 'today' : dueInfo.days === 1 ? 'tomorrow' : `in ${dueInfo.days}d`;
+      let dueHtml;
+      if (effMin <= 0) {
+        dueHtml = `<div class="payday-next muted-hint">no minimum</div>`;
+      } else if (d.paidEarly === monthKey) {
+        dueHtml = `<div class="payday-next">Paid this month &#10003; • next ${dueInfo.label}</div>`
+          + `<button class="btn btn-sm ghost" data-debt-unpay="${d.id}">Undo</button>`;
+      } else if (isBillRemaining(d, effMin)) {
+        dueHtml = `<div class="payday-next">${dueInfo.label} — ${dueDaysTxt}</div>`
+          + `<button class="btn btn-sm" data-debt-paid="${d.id}">Paid early</button>`;
+      } else {
+        dueHtml = `<div class="payday-next muted-hint">paid • next ${dueInfo.label}</div>`;
+      }
       const pctNote =
         type === 'card' && balance > 0
           ? `<div class="cell-sub">${((Number(d.minPct) || 0) * 100).toFixed(2)}% of balance</div>`
@@ -1303,6 +1334,11 @@ function renderDebts() {
         </td>
         <td>${fmt(monthlyInt)}</td>
         <td class="${dailyCost > 0 ? 'neg' : ''}">${fmt(dailyCost)}</td>
+        <td class="cell-edit payday-cell exp-due-cell">
+          <input data-id="${d.id}" data-field="payAnchor" type="date" value="${d.payAnchor || ''}"
+                 title="A previous payment date sets the recurring due day (default: the 1st)" />
+          ${dueHtml}
+        </td>
         <td><button class="btn ghost" data-del="${d.id}">Delete</button></td>
       `;
       tbody.appendChild(tr);
@@ -1345,6 +1381,14 @@ function renderDebts() {
     utilEl.textContent = '—';
   }
 
+  // Minimum payments still due this month (minimums assumed on the 1st)
+  const rm = remainingMinimumsThisMonth();
+  const rmEl = document.getElementById('debts-remaining-min');
+  const rmSub = document.getElementById('debts-remaining-sub');
+  if (rmEl) rmEl.textContent = fmt(rm.total);
+  if (rmSub) rmSub.textContent =
+    rm.count ? `${rm.count} minimum${rm.count === 1 ? '' : 's'} still due` : 'all minimums paid';
+
   // Handle both <input> and <select> edits
   tbody.querySelectorAll('[data-field]').forEach((el) => {
     el.addEventListener('change', () => {
@@ -1374,6 +1418,8 @@ function renderDebts() {
         if ((d.type || 'card') === 'card') {
           d.minimum = effectiveMin(d);
         }
+      } else if (f === 'payAnchor') {
+        d.payAnchor = el.value;
       } else {
         d[f] = parseFloat(el.value) || 0;
       }
@@ -1387,6 +1433,26 @@ function renderDebts() {
       save();
       renderAll();
       toast('Debt removed');
+    });
+  });
+  tbody.querySelectorAll('button[data-debt-paid]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const d = state.debts.find((x) => x.id === btn.dataset.debtPaid);
+      if (!d) return;
+      d.paidEarly = currentMonthKey();
+      save();
+      renderAll();
+      toast('Minimum marked paid for this month');
+    });
+  });
+  tbody.querySelectorAll('button[data-debt-unpay]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const d = state.debts.find((x) => x.id === btn.dataset.debtUnpay);
+      if (!d) return;
+      delete d.paidEarly;
+      save();
+      renderAll();
+      toast('Minimum marked unpaid');
     });
   });
 }
@@ -1529,13 +1595,13 @@ function renderExpenses() {
     const monthKey = currentMonthKey();
     sortedExpenses.forEach((x) => {
       const daily = (Number(x.amount) || 0) / 30.44;
-      const info = expenseNextDueInfo(x);
+      const info = billNextDueInfo(x);
       const daysTxt = info.days === 0 ? 'today' : info.days === 1 ? 'tomorrow' : `in ${info.days}d`;
       let dueHtml;
       if (x.paidEarly === monthKey) {
         dueHtml = `<div class="payday-next">Paid this month &#10003; • next ${info.label}</div>`
           + `<button class="btn btn-sm ghost" data-unpay="${x.id}">Undo</button>`;
-      } else if (isExpenseRemaining(x)) {
+      } else if (isBillRemaining(x, x.amount)) {
         dueHtml = `<div class="payday-next">${info.label} — ${daysTxt}</div>`
           + `<button class="btn btn-sm" data-paid-early="${x.id}">Paid early</button>`;
       } else {
